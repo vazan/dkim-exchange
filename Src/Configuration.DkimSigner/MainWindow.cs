@@ -74,7 +74,7 @@ namespace Configuration.DkimSigner
 		private void MainWindow_Load(object sender, EventArgs e)
 		{
 			CheckExchangeInstalled();
-			CheckDkimSignerAvailable();
+			EnableLocalZipOnlyUpdateMode();
 			CheckDkimSignerInstalled();
 
 			// Check transport service status each second
@@ -130,8 +130,8 @@ namespace Configuration.DkimSigner
 
 		private void cbxPrereleases_CheckedChanged(object sender, EventArgs e)
 		{
-			txtDkimSignerAvailable.Text = "Loading ...";
-			CheckDkimSignerAvailable();
+			// GitHub update checks are disabled in local ZIP only mode.
+			cbxPrereleases.Checked = false;
 		}
 
 		private void generic_ValueChanged(object sender, EventArgs e)
@@ -361,12 +361,18 @@ namespace Configuration.DkimSigner
 		{
 			bool isExchangeInstalled = (txtExchangeInstalled.Text != "" && txtExchangeInstalled.Text != "Unknown" && txtExchangeInstalled.Text != "Loading...");
 
-			if (dkimSignerAvailable != null)
-			{
-				btUpgrade.Text = (dkimSignerInstalled != null ? (dkimSignerInstalled < dkimSignerAvailable.Version ? "&Upgrade" : "&Reinstall") : "&Install");
-			}
+			btUpgrade.Text = dkimSignerInstalled != null ? "&Upgrade (ZIP)" : "&Install (ZIP)";
+			btUpgrade.Enabled = isExchangeInstalled;
+		}
 
-			btUpgrade.Enabled = dkimSignerAvailable != null && isExchangeInstalled;
+		private void EnableLocalZipOnlyUpdateMode()
+		{
+			cbxPrereleases.Checked = false;
+			cbxPrereleases.Enabled = false;
+			txtDkimSignerAvailable.Text = "Local ZIP only";
+			txtChangelog.Text = "GitHub automatic update checks are disabled. Use Install/Upgrade (ZIP) with a local package file.";
+			dkimSignerAvailable = null;
+			SetUpgradeButton();
 		}
 
 		/// <summary>
@@ -754,10 +760,10 @@ namespace Configuration.DkimSigner
 
 		private void btUpgrade_Click(object sender, EventArgs e)
 		{
-			if (btUpgrade.Text == "Reinstall" ? MessageBox.Show(this, "Do you really want to " + btUpgrade.Text.ToUpper() + " the DKIM Exchange Agent (new Version: " + txtDkimSignerAvailable.Text + ")?\n", "Confirmation", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes : true)
-			{
-				DownloadAndInstall();
-			}
+			InstallWindow installWindow = new InstallWindow();
+			installWindow.ShowDialog(this);
+			installWindow.Dispose();
+			CheckDkimSignerInstalled();
 		}
 
 		/// <summary>

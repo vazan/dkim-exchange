@@ -11,7 +11,6 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using Configuration.DkimSigner.Exchange;
 using Configuration.DkimSigner.FileIO;
-using Configuration.DkimSigner.GitHub;
 using Microsoft.Win32;
 using Configuration.DkimSigner.Configuration;
 
@@ -27,7 +26,6 @@ namespace Configuration.DkimSigner
 		private AutoResetEvent transportServiceActionCompleted;
 		private string transportServiceSuccessStatus;
 
-		private List<Release> versionAvailable;
 		private Version exchangeVersion;
 
 		private string zipUrl;
@@ -65,7 +63,7 @@ namespace Configuration.DkimSigner
 
 			if (zipUrl == null && !performInstall)
 			{
-				CheckDkimSignerAvailable();
+				EnableLocalZipOnlyMode();
 			}
 			else
 			{
@@ -91,50 +89,22 @@ namespace Configuration.DkimSigner
 
 		private void cbxPrereleases_CheckedChanged(object sender, EventArgs e)
 		{
-			btInstall.Enabled = false;
-			CheckDkimSignerAvailable();
+			cbxPrereleases.Checked = false;
+			btInstall.Enabled = IsBtInstallEnabled();
 		}
 
 		// ##########################################################
 		// ################# Internal functions #####################
 		// ##########################################################
 
-		/// <summary>
-		/// Thread safe function for the thread DkimSignerAvailable
-		/// </summary>
-		private async void CheckDkimSignerAvailable()
+		private void EnableLocalZipOnlyMode()
 		{
-			cbxPrereleases.Enabled = false;
-
-			await Task.Run(() => versionAvailable = ApiWrapper.GetAllRelease(cbxPrereleases.Checked, new Version("2.0.0")));
-
-			cbxPrereleases.Enabled = true;
-
 			cbVersionWeb.Items.Clear();
-			if (versionAvailable != null)
-			{
-				if (versionAvailable.Count > 0)
-				{
-					foreach (Release oVersionAvailable in versionAvailable)
-					{
-						cbVersionWeb.Items.Add(oVersionAvailable.TagName);
-					}
-
-					cbVersionWeb.Enabled = true;
-				}
-				else
-				{
-					MessageBox.Show(this, "No release information from the Web available.", "Version", MessageBoxButtons.OK, MessageBoxIcon.Information);
-					cbVersionWeb.Enabled = false;
-				}
-			}
-			else
-			{
-				MessageBox.Show(this, "Could not obtain release information from the Web. Check your Internet connection or retry later.", "Error fetching version", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-				cbVersionWeb.Enabled = false;
-			}
-
-			cbxPrereleases.Enabled = true;
+			cbVersionWeb.Enabled = false;
+			cbxPrereleases.Checked = false;
+			cbxPrereleases.Enabled = false;
+			lbVersionWeb.Text = "Install from Web : Disabled";
+			lbOr.Text = "Use local ZIP";
 		}
 
 		/// <summary>
@@ -157,7 +127,7 @@ namespace Configuration.DkimSigner
 
 		private bool IsBtInstallEnabled()
 		{
-			return exchangeVersion != null && exchangeVersion.Major > 0 && (!string.IsNullOrEmpty(cbVersionWeb.Text) || !string.IsNullOrEmpty(txtVersionFile.Text));
+			return exchangeVersion != null && exchangeVersion.Major > 0 && !string.IsNullOrEmpty(txtVersionFile.Text);
 		}
 
 		private void Install()
@@ -502,7 +472,7 @@ namespace Configuration.DkimSigner
 			{
 				oFileDialog.FileName = "dkim-exchange.zip";
 				oFileDialog.Filter = "ZIP files|*.zip";
-				oFileDialog.Title = "Select the .zip file downloaded from github.com";
+				oFileDialog.Title = "Select the local .zip file to install";
 
 				try
 				{
@@ -531,7 +501,13 @@ namespace Configuration.DkimSigner
 
 		private void btInstall_Click(object sender, EventArgs e)
 		{
-			zipUrl = txtVersionFile.Text != string.Empty ? txtVersionFile.Text : versionAvailable[cbVersionWeb.SelectedIndex].ZipballUrl;
+			if (string.IsNullOrWhiteSpace(txtVersionFile.Text))
+			{
+				MessageBox.Show(this, "Please select a local ZIP file first.", "ZIP required", MessageBoxButtons.OK, MessageBoxIcon.Information);
+				return;
+			}
+
+			zipUrl = txtVersionFile.Text;
 			Install();
 		}
 
