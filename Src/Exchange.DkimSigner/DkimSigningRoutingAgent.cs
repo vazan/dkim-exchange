@@ -86,11 +86,9 @@ namespace Exchange.DkimSigner
 		[SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "Log general exceptions")]
 		private void SignMailItem(MailItem mailItem)
 		{
-			// If the mail item is a "system message" then it will be read-only here,
-			// and we can't sign it. Additionally, if the message has a "TnefPart",
-			// then it is in a proprietary format used by Outlook and Exchange Server,
-			// which means we shouldn't bother signing it.
-			if (!mailItem.Message.IsSystemMessage && mailItem.Message.TnefPart == null)
+			// Messages with a TNEF part are in a proprietary format used by Outlook
+			// and Exchange Server, which means we should not sign them.
+			if (mailItem.Message.TnefPart == null)
 			{
 				string domainPart = null;
 
@@ -145,7 +143,7 @@ namespace Exchange.DkimSigner
 			}
 			else if (Logger.IsDebugEnabled())
 			{
-				Logger.LogDebug("Message is a System message or of TNEF format. Not signing.");
+				Logger.LogDebug("Message is of TNEF format. Not signing.");
 			}
 		}
 	}

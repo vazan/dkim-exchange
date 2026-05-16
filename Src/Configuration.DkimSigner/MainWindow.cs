@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.IO.Compression;
+using System.Net;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -18,6 +19,7 @@ using Heijden.DNS;
 using Org.BouncyCastle.Asn1.X509;
 using Org.BouncyCastle.Crypto;
 using Org.BouncyCastle.Crypto.Generators;
+using Org.BouncyCastle.Crypto.Parameters;
 using Org.BouncyCastle.OpenSsl;
 using Org.BouncyCastle.Security;
 using Org.BouncyCastle.X509;
@@ -432,6 +434,7 @@ namespace Configuration.DkimSigner
 			//
 			rbRsaSha1.Checked = (oConfig.SigningAlgorithm == DkimAlgorithmKind.RsaSha1);
 			rbRsaSha256.Checked = (oConfig.SigningAlgorithm == DkimAlgorithmKind.RsaSha256);
+			rbEd25519Sha256.Checked = (oConfig.SigningAlgorithm == DkimAlgorithmKind.Ed25519Sha256);
 			rbSimpleHeaderCanonicalization.Checked = (oConfig.HeaderCanonicalization == DkimCanonicalizationKind.Simple);
 			rbRelaxedHeaderCanonicalization.Checked = (oConfig.HeaderCanonicalization == DkimCanonicalizationKind.Relaxed);
 			rbSimpleBodyCanonicalization.Checked = (oConfig.BodyCanonicalization == DkimCanonicalizationKind.Simple);
@@ -475,7 +478,9 @@ namespace Configuration.DkimSigner
 		private bool SaveDkimSignerConfig()
 		{
 			oConfig.Loglevel = cbLogLevel.SelectedIndex + 1;
-			oConfig.SigningAlgorithm = (rbRsaSha1.Checked ? DkimAlgorithmKind.RsaSha1 : DkimAlgorithmKind.RsaSha256);
+			oConfig.SigningAlgorithm = rbRsaSha1.Checked
+				? DkimAlgorithmKind.RsaSha1
+				: (rbEd25519Sha256.Checked ? DkimAlgorithmKind.Ed25519Sha256 : DkimAlgorithmKind.RsaSha256);
 			oConfig.BodyCanonicalization = (rbSimpleBodyCanonicalization.Checked ? DkimCanonicalizationKind.Simple : DkimCanonicalizationKind.Relaxed);
 			oConfig.HeaderCanonicalization = (rbSimpleHeaderCanonicalization.Checked ? DkimCanonicalizationKind.Simple : DkimCanonicalizationKind.Relaxed);
 
@@ -495,10 +500,10 @@ namespace Configuration.DkimSigner
 			return true;
 		}
 
-		private void UpdateSuggestedDns(string sRsaPublicKeyBase64 = "")
+		private void UpdateSuggestedDns(string publicKeyBase64 = "", string keyType = null)
 		{
 			string sDnsRecord = "";
-			if (sRsaPublicKeyBase64 == string.Empty)
+			if (publicKeyBase64 == string.Empty)
 			{
 				string sPrivateKeyPath = txtDomainPrivateKeyFilename.Text;
 
@@ -537,17 +542,25 @@ namespace Configuration.DkimSigner
 
 					SubjectPublicKeyInfo publicKeyInfo = SubjectPublicKeyInfoFactory.CreateSubjectPublicKeyInfo(rdKey);
 					byte[] serializedPublicBytes = publicKeyInfo.ToAsn1Object().GetDerEncoded();
-					sRsaPublicKeyBase64 = Convert.ToBase64String(serializedPublicBytes);
+					publicKeyBase64 = Convert.ToBase64String(serializedPublicBytes);
+					if (keyType == null)
+					{
+						keyType = rdKey is Ed25519PublicKeyParameters ? "ed25519" : "rsa";
+					}
 				}
 				else
 				{
-					sDnsRecord = "No RSA pub key found:\n" + sPubKeyPath;
+					sDnsRecord = "No public key found:\n" + sPubKeyPath;
 				}
 			}
 
-			if (sRsaPublicKeyBase64 != null && sRsaPublicKeyBase64 != string.Empty)
+			if (publicKeyBase64 != null && publicKeyBase64 != string.Empty)
 			{
-				sDnsRecord = "v=DKIM1; k=rsa; p=" + sRsaPublicKeyBase64;
+				if (keyType == null)
+				{
+					keyType = rbEd25519Sha256.Checked ? "ed25519" : "rsa";
+				}
+				sDnsRecord = "v=DKIM1; k=" + keyType + "; p=" + publicKeyBase64;
 			}
 
 			txtDNSRecord.Text = sDnsRecord;
@@ -932,9 +945,20 @@ namespace Configuration.DkimSigner
 				return;
 			}
 
-			RsaKeyPairGenerator g = new RsaKeyPairGenerator();
-			g.Init(new KeyGenerationParameters(new SecureRandom(), Convert.ToInt32(cbKeyLength.Text, 10)));
-			AsymmetricCipherKeyPair pair = g.GenerateKeyPair();
+			bool useEd25519 = rbEd25519Sha256.Checked;
+			AsymmetricCipherKeyPair pair;
+			if (useEd25519)
+			{
+				Ed25519KeyPairGenerator g = new Ed25519KeyPairGenerator();
+				g.Init(new Ed25519KeyGenerationParameters(new SecureRandom()));
+				pair = g.GenerateKeyPair();
+			}
+			else
+			{
+				RsaKeyPairGenerator g = new RsaKeyPairGenerator();
+				g.Init(new KeyGenerationParameters(new SecureRandom(), Convert.ToInt32(cbKeyLength.Text, 10)));
+				pair = g.GenerateKeyPair();
+			}
 
 			//PrivateKeyInfo privateKeyInfo = PrivateKeyInfoFactory.CreatePrivateKeyInfo(pair.Private);
 			//byte [] serializedPrivateBytes = privateKeyInfo.ToAsn1Object().GetDerEncoded();
@@ -968,7 +992,7 @@ namespace Configuration.DkimSigner
 			}
 
 
-			UpdateSuggestedDns(Convert.ToBase64String(serializedPublicBytes));
+			UpdateSuggestedDns(Convert.ToBase64String(serializedPublicBytes), useEd25519 ? "ed25519" : "rsa");
 			SetDomainKeyPath(fileName);
 		}
 
@@ -1039,8 +1063,16 @@ namespace Configuration.DkimSigner
 				Response oResponse;
 				oResolver.Recursion = true;
 				oResolver.UseCache = false;
+				if (rbDnsGoogle.Checked)
+				{
+					oResolver.DnsServer = "8.8.8.8";
+				}
+				else if (rbDnsCloudflare.Checked)
+				{
+					oResolver.DnsServer = "1.1.1.1";
+				}
 
-				if (cbBypasNSCache.Checked)
+				if (cbBypasNSCache.Checked && rbDnsLocal.Checked)
 				{
 					// Get the name server for the domain to avoid DNS caching
 					oResponse = oResolver.Query(sFullDomain, QType.NS, QClass.IN);

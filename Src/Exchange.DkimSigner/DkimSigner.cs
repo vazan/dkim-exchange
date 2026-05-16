@@ -69,6 +69,9 @@ namespace Exchange.DkimSigner
 					case DkimAlgorithmKind.RsaSha256:
 						signatureAlgorithm = DkimSignatureAlgorithm.RsaSha256;
 						break;
+						case DkimAlgorithmKind.Ed25519Sha256:
+							signatureAlgorithm = DkimSignatureAlgorithm.Ed25519Sha256;
+							break;
 					default:
 						// ReSharper disable once NotResolvedInText
 						throw new ArgumentOutOfRangeException("config.SigningAlgorithm");
@@ -86,10 +89,11 @@ namespace Exchange.DkimSigner
 						Logger.LogError("The private key for domain " + domainElement.Domain + " wasn't found: " + privateKey + ". Ignoring domain.");
 					}
 
-					//check if the private key can be parsed
+					// Check if the private key can be parsed. ParsePrivateKey supports
+					// RSA and Ed25519 private key files without requiring a bundled keypair.
 					try
 					{
-						KeyHelper.ParseKeyPair(privateKey);
+						KeyHelper.ParsePrivateKey(privateKey);
 					}
 					catch (Exception ex)
 					{

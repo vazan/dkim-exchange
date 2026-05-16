@@ -65,6 +65,7 @@
 			this.rbRelaxedHeaderCanonicalization = new System.Windows.Forms.RadioButton();
 			this.rbSimpleHeaderCanonicalization = new System.Windows.Forms.RadioButton();
 			this.gbAlgorithm = new System.Windows.Forms.GroupBox();
+			this.rbEd25519Sha256 = new System.Windows.Forms.RadioButton();
 			this.rbRsaSha256 = new System.Windows.Forms.RadioButton();
 			this.rbRsaSha1 = new System.Windows.Forms.RadioButton();
 			this.tpDomain = new System.Windows.Forms.TabPage();
@@ -73,6 +74,10 @@
 			this.btAddDomain = new System.Windows.Forms.Button();
 			this.btDomainDelete = new System.Windows.Forms.Button();
 			this.gbxDomainDetails = new System.Windows.Forms.GroupBox();
+			this.gbDnsResolver = new System.Windows.Forms.GroupBox();
+			this.rbDnsCloudflare = new System.Windows.Forms.RadioButton();
+			this.rbDnsGoogle = new System.Windows.Forms.RadioButton();
+			this.rbDnsLocal = new System.Windows.Forms.RadioButton();
 			this.cbBypasNSCache = new System.Windows.Forms.CheckBox();
 			this.btCopyToClipboard = new System.Windows.Forms.Button();
 			this.lblDomainDNSCheckResult = new System.Windows.Forms.Label();
@@ -536,6 +541,7 @@
 			// 
 			// gbAlgorithm
 			// 
+			this.gbAlgorithm.Controls.Add(this.rbEd25519Sha256);
 			this.gbAlgorithm.Controls.Add(this.rbRsaSha256);
 			this.gbAlgorithm.Controls.Add(this.rbRsaSha1);
 			this.gbAlgorithm.Location = new System.Drawing.Point(243, 6);
@@ -544,6 +550,17 @@
 			this.gbAlgorithm.TabIndex = 1;
 			this.gbAlgorithm.TabStop = false;
 			this.gbAlgorithm.Text = "Algorithm";
+			// 
+			// rbEd25519Sha256
+			// 
+			this.rbEd25519Sha256.AutoSize = true;
+			this.rbEd25519Sha256.Location = new System.Drawing.Point(312, 20);
+			this.rbEd25519Sha256.Name = "rbEd25519Sha256";
+			this.rbEd25519Sha256.Size = new System.Drawing.Size(108, 17);
+			this.rbEd25519Sha256.TabIndex = 2;
+			this.rbEd25519Sha256.Text = "Ed25519-SHA256";
+			this.rbEd25519Sha256.UseVisualStyleBackColor = true;
+			this.rbEd25519Sha256.CheckedChanged += new System.EventHandler(this.generic_ValueChanged);
 			// 
 			// rbRsaSha256
 			// 
@@ -635,6 +652,7 @@
 			this.gbxDomainDetails.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
             | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
+			this.gbxDomainDetails.Controls.Add(this.gbDnsResolver);
 			this.gbxDomainDetails.Controls.Add(this.cbBypasNSCache);
 			this.gbxDomainDetails.Controls.Add(this.btCopyToClipboard);
 			this.gbxDomainDetails.Controls.Add(this.lblDomainDNSCheckResult);
@@ -664,15 +682,59 @@
 			this.gbxDomainDetails.TabStop = false;
 			this.gbxDomainDetails.Text = "Domain details";
 			// 
+			// gbDnsResolver
+			// 
+			this.gbDnsResolver.Controls.Add(this.rbDnsCloudflare);
+			this.gbDnsResolver.Controls.Add(this.rbDnsGoogle);
+			this.gbDnsResolver.Controls.Add(this.rbDnsLocal);
+			this.gbDnsResolver.Location = new System.Drawing.Point(141, 280);
+			this.gbDnsResolver.Name = "gbDnsResolver";
+			this.gbDnsResolver.Size = new System.Drawing.Size(385, 45);
+			this.gbDnsResolver.TabIndex = 20;
+			this.gbDnsResolver.TabStop = false;
+			this.gbDnsResolver.Text = "DNS resolver";
+			// 
+			// rbDnsCloudflare
+			// 
+			this.rbDnsCloudflare.AutoSize = true;
+			this.rbDnsCloudflare.Location = new System.Drawing.Point(254, 19);
+			this.rbDnsCloudflare.Name = "rbDnsCloudflare";
+			this.rbDnsCloudflare.Size = new System.Drawing.Size(72, 17);
+			this.rbDnsCloudflare.TabIndex = 2;
+			this.rbDnsCloudflare.Text = "Cloudflare";
+			this.rbDnsCloudflare.UseVisualStyleBackColor = true;
+			// 
+			// rbDnsGoogle
+			// 
+			this.rbDnsGoogle.AutoSize = true;
+			this.rbDnsGoogle.Location = new System.Drawing.Point(140, 19);
+			this.rbDnsGoogle.Name = "rbDnsGoogle";
+			this.rbDnsGoogle.Size = new System.Drawing.Size(59, 17);
+			this.rbDnsGoogle.TabIndex = 1;
+			this.rbDnsGoogle.Text = "Google";
+			this.rbDnsGoogle.UseVisualStyleBackColor = true;
+			// 
+			// rbDnsLocal
+			// 
+			this.rbDnsLocal.AutoSize = true;
+			this.rbDnsLocal.Checked = true;
+			this.rbDnsLocal.Location = new System.Drawing.Point(24, 19);
+			this.rbDnsLocal.Name = "rbDnsLocal";
+			this.rbDnsLocal.Size = new System.Drawing.Size(51, 17);
+			this.rbDnsLocal.TabIndex = 0;
+			this.rbDnsLocal.TabStop = true;
+			this.rbDnsLocal.Text = "Local";
+			this.rbDnsLocal.UseVisualStyleBackColor = true;
+			// 
 			// cbBypasNSCache
 			// 
 			this.cbBypasNSCache.AutoSize = true;
 			this.cbBypasNSCache.Checked = true;
 			this.cbBypasNSCache.CheckState = System.Windows.Forms.CheckState.Checked;
-			this.cbBypasNSCache.Location = new System.Drawing.Point(10, 309);
+			this.cbBypasNSCache.Location = new System.Drawing.Point(10, 331);
 			this.cbBypasNSCache.Name = "cbBypasNSCache";
 			this.cbBypasNSCache.Size = new System.Drawing.Size(105, 17);
-			this.cbBypasNSCache.TabIndex = 20;
+			this.cbBypasNSCache.TabIndex = 21;
 			this.cbBypasNSCache.Text = "Direct NS check";
 			this.cbBypasNSCache.UseVisualStyleBackColor = true;
 			// 
@@ -689,7 +751,7 @@
 			// lblDomainDNSCheckResult
 			// 
 			this.lblDomainDNSCheckResult.AutoSize = true;
-			this.lblDomainDNSCheckResult.Location = new System.Drawing.Point(138, 378);
+			this.lblDomainDNSCheckResult.Location = new System.Drawing.Point(138, 381);
 			this.lblDomainDNSCheckResult.Name = "lblDomainDNSCheckResult";
 			this.lblDomainDNSCheckResult.Size = new System.Drawing.Size(110, 13);
 			this.lblDomainDNSCheckResult.TabIndex = 18;
@@ -1146,6 +1208,7 @@
         private System.Windows.Forms.GroupBox gbAlgorithm;
         private System.Windows.Forms.RadioButton rbRsaSha1;
         private System.Windows.Forms.RadioButton rbRsaSha256;
+		private System.Windows.Forms.RadioButton rbEd25519Sha256;
         private System.Windows.Forms.GroupBox gbHeaderCanonicalization;
         private System.Windows.Forms.RadioButton rbRelaxedHeaderCanonicalization;
         private System.Windows.Forms.RadioButton rbSimpleHeaderCanonicalization;
@@ -1210,6 +1273,10 @@
         private System.Windows.Forms.TextBox txDebugPath;
         private System.Windows.Forms.Label label3;
         private System.Windows.Forms.CheckBox cbBypasNSCache;
+		private System.Windows.Forms.GroupBox gbDnsResolver;
+		private System.Windows.Forms.RadioButton rbDnsCloudflare;
+		private System.Windows.Forms.RadioButton rbDnsGoogle;
+		private System.Windows.Forms.RadioButton rbDnsLocal;
 		private System.Windows.Forms.LinkLabel linkLabelWebsite;
 		private System.Windows.Forms.Label labelCopyright;
 		private System.Windows.Forms.Label labelVersion;
