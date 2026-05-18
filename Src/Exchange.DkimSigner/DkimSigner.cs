@@ -4,6 +4,7 @@ using Microsoft.Exchange.Data.Transport;
 using MimeKit;
 using MimeKit.Cryptography;
 using Org.BouncyCastle.Crypto;
+using Org.BouncyCastle.Crypto.Parameters;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -105,6 +106,26 @@ namespace Exchange.DkimSigner
 					try
 					{
 						AsymmetricKeyParameter key = KeyHelper.ParsePrivateKey(privateKey);
+
+						// Validate key type matches the selected algorithm
+						if (signatureAlgorithm == DkimSignatureAlgorithm.Ed25519Sha256)
+						{
+							if (!(key is Ed25519PrivateKeyParameters))
+							{
+								Logger.LogError("Private key for domain " + domainElement.Domain + " is not Ed25519. " +
+									"Key type: " + key.GetType().Name + ". You must generate an Ed25519 key for this domain.");
+								continue;
+							}
+						}
+						else if (signatureAlgorithm == DkimSignatureAlgorithm.RsaSha1 || signatureAlgorithm == DkimSignatureAlgorithm.RsaSha256)
+						{
+							if (!(key is RsaPrivateCrtKeyParameters) && !(key is RsaKeyParameters))
+							{
+								Logger.LogError("Private key for domain " + domainElement.Domain + " is not RSA. " +
+									"Key type: " + key.GetType().Name + ". You must generate an RSA key for this domain.");
+								continue;
+							}
+						}
 
 						signer = new MimeKit.Cryptography.DkimSigner(key, domainElement.Domain, domainElement.Selector, signatureAlgorithm)
 						{

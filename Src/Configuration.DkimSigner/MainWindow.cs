@@ -1149,6 +1149,12 @@ namespace Configuration.DkimSigner
 		{
 			if (epvDomainSelector.GetError(txtDomainName) == "" && epvDomainSelector.GetError(txtDomainSelector) == "")
 			{
+				// Validate that key type matches the selected algorithm
+				if (!ValidateKeyTypeMatchesAlgorithm())
+				{
+					return;
+				}
+
 				DomainElement oCurrentDomain;
 				bool bAddToList = false;
 
@@ -1182,6 +1188,64 @@ namespace Configuration.DkimSigner
 			else
 			{
 				ShowMessageBox("Config error", "You first need to fix the errors in your domain configuration before saving.", MessageBoxButtons.OK, MessageBoxIcon.Error);
+			}
+		}
+
+		/// <summary>
+		/// Validate that the private key type matches the selected DKIM algorithm
+		/// </summary>
+		private bool ValidateKeyTypeMatchesAlgorithm()
+		{
+			string sPrivateKeyPath = txtDomainPrivateKeyFilename.Text;
+			if (string.IsNullOrWhiteSpace(sPrivateKeyPath))
+			{
+				ShowMessageBox("Key required", "Please select a private key file before saving.", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+				return false;
+			}
+
+			if (!Path.IsPathRooted(sPrivateKeyPath))
+			{
+				sPrivateKeyPath = Path.Combine(Constants.DkimSignerPath, "keys", sPrivateKeyPath);
+			}
+
+			if (!File.Exists(sPrivateKeyPath))
+			{
+				ShowMessageBox("Key not found", "Private key file not found: " + sPrivateKeyPath, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+				return false;
+			}
+
+			try
+			{
+				AsymmetricKeyParameter key = KeyHelper.ParsePrivateKey(sPrivateKeyPath);
+				bool isEd25519Key = key is Ed25519PrivateKeyParameters;
+				bool isRsaKey = key is RsaPrivateCrtKeyParameters || key is RsaKeyParameters;
+				bool isEd25519Algorithm = rbEd25519Sha256.Checked;
+
+				if (isEd25519Algorithm && !isEd25519Key)
+				{
+					ShowMessageBox("Key type mismatch", "Selected algorithm is Ed25519-SHA256 but the key is RSA.\n\n" +
+						"Please either:\n" +
+						"1. Select Ed25519 algorithm instead, OR\n" +
+						"2. Generate a new Ed25519 key using the 'Generate new key' button.",
+						MessageBoxButtons.OK, MessageBoxIcon.Error);
+					return false;
+				}
+				else if (!isEd25519Algorithm && !isRsaKey)
+				{
+					ShowMessageBox("Key type mismatch", "Selected algorithm is RSA but the key is Ed25519.\n\n" +
+						"Please either:\n" +
+						"1. Select Ed25519-SHA256 algorithm instead, OR\n" +
+						"2. Generate a new RSA key using the 'Generate new key' button.",
+						MessageBoxButtons.OK, MessageBoxIcon.Error);
+					return false;
+				}
+
+				return true;
+			}
+			catch (Exception ex)
+			{
+				ShowMessageBox("Key validation error", "Could not validate key: " + ex.Message, MessageBoxButtons.OK, MessageBoxIcon.Error);
+				return false;
 			}
 		}
 
