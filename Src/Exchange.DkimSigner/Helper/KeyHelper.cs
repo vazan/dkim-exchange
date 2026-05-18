@@ -1,6 +1,9 @@
-﻿using Org.BouncyCastle.Crypto;
+﻿using Org.BouncyCastle.Asn1.Pkcs;
+using Org.BouncyCastle.Asn1.X509;
+using Org.BouncyCastle.Crypto;
 using Org.BouncyCastle.Crypto.Parameters;
 using Org.BouncyCastle.OpenSsl;
+using Org.BouncyCastle.Security;
 using System;
 using System.IO;
 
@@ -69,6 +72,7 @@ namespace Exchange.DkimSigner.Helper
 		/// <summary>
 		/// Parses the private key from the given key file.
 		/// If the key file contains a key pair, only its private key will be returned.
+		/// Supports PKCS8 format (which is required for Ed25519 keys).
 		/// </summary>
 		/// <param name="keyFile">path to the private key file</param>
 		/// <returns>the parsed private key parameters</returns>
@@ -78,6 +82,21 @@ namespace Exchange.DkimSigner.Helper
 			object obj = ReadPem(keyFile);
 			if (obj == null)
 				throw new FormatException("The key file has an invalid PEM format. " + keyFile);
+
+			// Handle PKCS8 PrivateKeyInfo (used for Ed25519 and modern RSA keys)
+			if (obj is PrivateKeyInfo)
+			{
+				try
+				{
+					PrivateKeyInfo privateKeyInfo = (PrivateKeyInfo)obj;
+					AsymmetricKeyParameter key = PrivateKeyFactory.CreateKey(privateKeyInfo);
+					return key;
+				}
+				catch (Exception ex)
+				{
+					throw new FormatException("Could not parse PKCS8 private key: " + ex.Message, ex);
+				}
+			}
 
 			if (obj is AsymmetricKeyParameter)
 			{
@@ -111,6 +130,21 @@ namespace Exchange.DkimSigner.Helper
 			object obj = ReadPem(keyFile);
 			if (obj == null)
 				throw new FormatException("The key file has an invalid PEM format. " + keyFile);
+
+			// Handle SubjectPublicKeyInfo (used for Ed25519 and modern RSA keys)
+			if (obj is Org.BouncyCastle.Asn1.X509.SubjectPublicKeyInfo)
+			{
+				try
+				{
+					Org.BouncyCastle.Asn1.X509.SubjectPublicKeyInfo publicKeyInfo = (Org.BouncyCastle.Asn1.X509.SubjectPublicKeyInfo)obj;
+					AsymmetricKeyParameter key = PublicKeyFactory.CreateKey(publicKeyInfo);
+					return key;
+				}
+				catch (Exception ex)
+				{
+					throw new FormatException("Could not parse SubjectPublicKeyInfo public key: " + ex.Message, ex);
+				}
+			}
 
 			if (obj is RsaPrivateCrtKeyParameters)
 			{
