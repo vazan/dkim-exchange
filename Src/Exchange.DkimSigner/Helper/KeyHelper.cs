@@ -9,34 +9,6 @@ using System;
 using System.IO;
 
 namespace Exchange.DkimSigner.Helper
-			// Handle ASN1 encoded SubjectPublicKeyInfo (PemReader returns Asn1Object for public key files)
-			if (obj is Asn1Object && !(obj is AsymmetricKeyParameter))
-			{
-				try
-				{
-					SubjectPublicKeyInfo publicKeyInfo = SubjectPublicKeyInfo.GetInstance((Asn1Object)obj);
-					AsymmetricKeyParameter key = PublicKeyFactory.CreateKey(publicKeyInfo);
-					return key;
-				}
-				catch (Exception ex)
-				{
-					throw new FormatException("Could not parse SubjectPublicKeyInfo public key from ASN1 object: " + ex.Message, ex);
-				}
-			}
-			// Handle ASN1 encoded PKCS8 (PemReader returns Asn1Object for PKCS8 files)
-			if (obj is Asn1Object && !(obj is AsymmetricKeyParameter))
-			{
-				try
-				{
-					PrivateKeyInfo privateKeyInfo = PrivateKeyInfo.GetInstance((Asn1Object)obj);
-					AsymmetricKeyParameter key = PrivateKeyFactory.CreateKey(privateKeyInfo);
-					return key;
-				}
-				catch (Exception ex)
-				{
-					throw new FormatException("Could not parse PKCS8 private key from ASN1 object: " + ex.Message, ex);
-				}
-			}
 {
 	public static class KeyHelper
 	{

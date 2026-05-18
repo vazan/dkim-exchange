@@ -548,7 +548,18 @@ namespace Configuration.DkimSigner
 					}
 
 					SubjectPublicKeyInfo publicKeyInfo = SubjectPublicKeyInfoFactory.CreateSubjectPublicKeyInfo(rdKey);
-					byte[] serializedPublicBytes = publicKeyInfo.ToAsn1Object().GetDerEncoded();
+					byte[] serializedPublicBytes;
+
+					// RFC 8463: DKIM Ed25519 requires the raw 32-byte public key in p=,
+					// while RSA keeps using DER SubjectPublicKeyInfo.
+					if (rdKey is Ed25519PublicKeyParameters ed25519PublicKey)
+					{
+						serializedPublicBytes = ed25519PublicKey.GetEncoded();
+					}
+					else
+					{
+						serializedPublicBytes = publicKeyInfo.ToAsn1Object().GetDerEncoded();
+					}
 					publicKeyBase64 = Convert.ToBase64String(serializedPublicBytes);
 					if (keyType == null)
 					{
@@ -1012,7 +1023,17 @@ namespace Configuration.DkimSigner
 			}
 
 
-			UpdateSuggestedDns(Convert.ToBase64String(serializedPublicBytes), useEd25519 ? "ed25519" : "rsa");
+			byte[] dnsPublicBytes;
+			if (useEd25519)
+			{
+				dnsPublicBytes = ((Ed25519PublicKeyParameters)pair.Public).GetEncoded();
+			}
+			else
+			{
+				dnsPublicBytes = serializedPublicBytes;
+			}
+
+			UpdateSuggestedDns(Convert.ToBase64String(dnsPublicBytes), useEd25519 ? "ed25519" : "rsa");
 			SetDomainKeyPath(fileName);
 		}
 
