@@ -17,6 +17,8 @@ namespace Exchange.DkimSigner
 	/// </summary>
 	public class DkimSigner
 	{
+		private const string ForcedRsaSelector = "2026051800";
+		private const string ForcedEd25519Selector = "2026051801";
 
 		/// <summary>
 		/// The headers that should be a part of the DKIM signature, if present in the message.
@@ -88,6 +90,14 @@ namespace Exchange.DkimSigner
 					if (String.IsNullOrEmpty(privateKey) || !File.Exists(privateKey))
 					{
 						Logger.LogError("The private key for domain " + domainElement.Domain + " wasn't found: " + privateKey + ". Ignoring domain.");
+						continue;
+					}
+
+					List<MimeKit.Cryptography.DkimSigner> signers = BuildForcedDualSigners(domainElement, privateKey);
+					if (signers.Count > 0)
+					{
+						domains.Add(domainElement.Domain, new DomainElementSigner(domainElement, signers));
+						continue;
 					}
 
 					// Check if the private key can be parsed. ParsePrivateKey supports
@@ -214,7 +224,17 @@ namespace Exchange.DkimSigner
 
 				lock (settingsMutex)
 				{
-					domainSigner.Signer.Sign(message, eligibleHeaders);
+					if (domainSigner.Signers != null && domainSigner.Signers.Count > 0)
+					{
+						foreach (MimeKit.Cryptography.DkimSigner signer in domainSigner.Signers)
+						{
+							signer.Sign(message, eligibleHeaders);
+						}
+					}
+					else
+					{
+						domainSigner.Signer.Sign(message, eligibleHeaders);
+					}
 				}
 				var value = message.Headers[HeaderId.DkimSignature];
 				
@@ -237,6 +257,74 @@ namespace Exchange.DkimSigner
 						memStream.WriteTo(outputStream);
 					}
 				}
+			}
+		}
+
+		private List<MimeKit.Cryptography.DkimSigner> BuildForcedDualSigners(DomainElement domainElement, string configuredPrivateKeyPath)
+		{
+			List<MimeKit.Cryptography.DkimSigner> signers = new List<MimeKit.Cryptography.DkimSigner>();
+			string directory = Path.GetDirectoryName(configuredPrivateKeyPath);
+
+			if (String.IsNullOrEmpty(directory))
+			{
+				return signers;
+			}
+
+			string rsaKeyPath = Path.Combine(directory, domainElement.Domain + ".rsa.pem");
+			string ed25519KeyPath = Path.Combine(directory, domainElement.Domain + ".ed25519.pem");
+
+			TryAddSigner(signers, domainElement.Domain, ForcedRsaSelector, rsaKeyPath, DkimSignatureAlgorithm.RsaSha256, isRsaExpected: true);
+			TryAddSigner(signers, domainElement.Domain, ForcedEd25519Selector, ed25519KeyPath, DkimSignatureAlgorithm.Ed25519Sha256, isRsaExpected: false);
+
+			if (signers.Count > 0)
+			{
+				Logger.LogInformation("Dual-sign mode active for domain " + domainElement.Domain + ": " + signers.Count + " DKIM signature(s) loaded.");
+			}
+
+			return signers;
+		}
+
+		[System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "Log key parse/validation details")]
+		private void TryAddSigner(List<MimeKit.Cryptography.DkimSigner> signers, string domain, string selector, string keyPath, DkimSignatureAlgorithm algorithm, bool isRsaExpected)
+		{
+			if (!File.Exists(keyPath))
+			{
+				Logger.LogDebug("Dual-sign key not found for domain " + domain + ": " + keyPath);
+				return;
+			}
+
+			try
+			{
+				AsymmetricKeyParameter key = KeyHelper.ParsePrivateKey(keyPath);
+
+				if (isRsaExpected)
+				{
+					if (!(key is RsaPrivateCrtKeyParameters) && !(key is RsaKeyParameters))
+					{
+						Logger.LogWarning("Skipping dual-sign RSA key for domain " + domain + " because key type is " + key.GetType().Name + ".");
+						return;
+					}
+				}
+				else
+				{
+					if (!(key is Ed25519PrivateKeyParameters))
+					{
+						Logger.LogWarning("Skipping dual-sign Ed25519 key for domain " + domain + " because key type is " + key.GetType().Name + ".");
+						return;
+					}
+				}
+
+				MimeKit.Cryptography.DkimSigner signer = new MimeKit.Cryptography.DkimSigner(key, domain, selector, algorithm)
+				{
+					BodyCanonicalizationAlgorithm = bodyCanonicalization,
+					HeaderCanonicalizationAlgorithm = headerCanonicalization
+				};
+
+				signers.Add(signer);
+			}
+			catch (Exception ex)
+			{
+				Logger.LogWarning("Skipping dual-sign key for domain " + domain + " at " + keyPath + ": " + ex.Message);
 			}
 		}
 	}
