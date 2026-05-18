@@ -21,6 +21,7 @@ using Org.BouncyCastle.Crypto;
 using Org.BouncyCastle.Crypto.Generators;
 using Org.BouncyCastle.Crypto.Parameters;
 using Org.BouncyCastle.OpenSsl;
+using Org.BouncyCastle.Pkcs;
 using Org.BouncyCastle.Security;
 using Org.BouncyCastle.X509;
 
@@ -966,28 +967,41 @@ namespace Configuration.DkimSigner
 				pair = g.GenerateKeyPair();
 			}
 
-			//PrivateKeyInfo privateKeyInfo = PrivateKeyInfoFactory.CreatePrivateKeyInfo(pair.Private);
-			//byte [] serializedPrivateBytes = privateKeyInfo.ToAsn1Object().GetDerEncoded();
+			// Serialize keys using proper formats
+			// For Ed25519, we must use PKCS8 (PrivateKeyInfo) to ensure compatibility
+			Org.BouncyCastle.Asn1.Pkcs.PrivateKeyInfo privateKeyInfo = PrivateKeyInfoFactory.CreatePrivateKeyInfo(pair.Private);
+			byte[] serializedPrivateBytes = privateKeyInfo.ToAsn1Object().GetDerEncoded();
 
 			SubjectPublicKeyInfo publicKeyInfo = SubjectPublicKeyInfoFactory.CreateSubjectPublicKeyInfo(pair.Public);
 			byte[] serializedPublicBytes = publicKeyInfo.ToAsn1Object().GetDerEncoded();
 
-			//Save private key to filename
+			//Save private key to filename in PKCS8 PEM format
 			try
 			{
+				// Write private key as PKCS8 PEM (max 64 chars per line)
+				string privateKeyBase64 = Convert.ToBase64String(serializedPrivateBytes);
 				using (StreamWriter file = new StreamWriter(fileName))
 				{
-					PemWriter pWrt = new PemWriter(file);
-					pWrt.WriteObject(pair);
-					pWrt.Writer.Close();
+					file.WriteLine("-----BEGIN PRIVATE KEY-----");
+					for (int i = 0; i < privateKeyBase64.Length; i += 64)
+					{
+						int length = Math.Min(64, privateKeyBase64.Length - i);
+						file.WriteLine(privateKeyBase64.Substring(i, length));
+					}
+					file.WriteLine("-----END PRIVATE KEY-----");
 				}
 
-				//Save public key to filename
+				// Write public key as SubjectPublicKeyInfo PEM (max 64 chars per line)
+				string publicKeyBase64 = Convert.ToBase64String(serializedPublicBytes);
 				using (StreamWriter file = new StreamWriter(fileNamePublic))
 				{
-					PemWriter pWrt = new PemWriter(file);
-					pWrt.WriteObject(pair.Public);
-					pWrt.Writer.Close();
+					file.WriteLine("-----BEGIN PUBLIC KEY-----");
+					for (int i = 0; i < publicKeyBase64.Length; i += 64)
+					{
+						int length = Math.Min(64, publicKeyBase64.Length - i);
+						file.WriteLine(publicKeyBase64.Substring(i, length));
+					}
+					file.WriteLine("-----END PUBLIC KEY-----");
 				}
 			}
 			catch (Exception ex)
