@@ -522,22 +522,41 @@ namespace Configuration.DkimSigner
 					? ForcedEd25519Selector
 					: ForcedRsaSelector;
 				records.Add(FormatDnsEntry(selector, domainName, resolvedKeyType, publicKeyBase64));
+				txtDNSName.Text = selector + "._domainkey." + domainName + ".";
 			}
 			else if (!string.IsNullOrWhiteSpace(domainName))
 			{
 				string keyDirectory = GetDomainKeysDirectory();
-				TryAddSuggestedDnsRecord(records, Path.Combine(keyDirectory, domainName + ".ed25519.pem"), domainName, ForcedEd25519Selector, "ed25519");
-				TryAddSuggestedDnsRecord(records, Path.Combine(keyDirectory, domainName + ".rsa.pem"), domainName, ForcedRsaSelector, "rsa");
+				string rsaRecord = BuildSuggestedDnsRecord(Path.Combine(keyDirectory, domainName + ".rsa.pem"), domainName, ForcedRsaSelector, "rsa");
+				string ed25519Record = BuildSuggestedDnsRecord(Path.Combine(keyDirectory, domainName + ".ed25519.pem"), domainName, ForcedEd25519Selector, "ed25519");
 
-				// Backward-compatible fallback for single-key setups.
-				if (records.Count == 0 && !string.IsNullOrWhiteSpace(txtDomainPrivateKeyFilename.Text))
+				if (rsaRecord != null || ed25519Record != null)
 				{
-					TryAddSuggestedDnsRecord(records, ResolvePublicKeyPath(txtDomainPrivateKeyFilename.Text), domainName, txtDomainSelector.Text, null);
+					txtDNSName.Text = ForcedRsaSelector + "._domainkey." + domainName + ". and " + ForcedEd25519Selector + "._domainkey." + domainName + ".";
+					records.Add("Add BOTH DNS records below:");
+					records.Add("");
+
+					records.Add("[1] RSA-SHA256");
+					records.Add(rsaRecord ?? ("Missing key: " + Path.Combine(keyDirectory, domainName + ".rsa.pem")));
+					records.Add("");
+
+					records.Add("[2] Ed25519-SHA256");
+					records.Add(ed25519Record ?? ("Missing key: " + Path.Combine(keyDirectory, domainName + ".ed25519.pem")));
+				}
+				else if (!string.IsNullOrWhiteSpace(txtDomainPrivateKeyFilename.Text))
+				{
+					// Backward-compatible fallback for single-key setups.
+					string fallbackRecord = BuildSuggestedDnsRecord(ResolvePublicKeyPath(txtDomainPrivateKeyFilename.Text), domainName, txtDomainSelector.Text, null);
+					if (fallbackRecord != null)
+					{
+						records.Add(fallbackRecord);
+						txtDNSName.Text = txtDomainSelector.Text + "._domainkey." + domainName + ".";
+					}
 				}
 			}
 
 			txtDNSRecord.Text = records.Count > 0
-				? string.Join("\r\n\r\n", records)
+				? string.Join("\r\n", records)
 				: "No key found. Generate/select keys first.";
 			lblDomainDNSCheckResult.Visible = false;
 		}
@@ -585,11 +604,11 @@ namespace Configuration.DkimSigner
 			return resolvedPath;
 		}
 
-		private void TryAddSuggestedDnsRecord(List<string> records, string keyPath, string domainName, string selector, string keyType)
+		private string BuildSuggestedDnsRecord(string keyPath, string domainName, string selector, string keyType)
 		{
 			if (!File.Exists(keyPath))
 			{
-				return;
+				return null;
 			}
 
 			try
@@ -608,11 +627,12 @@ namespace Configuration.DkimSigner
 					dnsPublicBytes = publicKeyInfo.ToAsn1Object().GetDerEncoded();
 				}
 
-				records.Add(FormatDnsEntry(selector, domainName, resolvedKeyType, Convert.ToBase64String(dnsPublicBytes)));
+				return FormatDnsEntry(selector, domainName, resolvedKeyType, Convert.ToBase64String(dnsPublicBytes));
 			}
 			catch
 			{
 				// Ignore invalid keys in suggested list and keep any valid records.
+				return null;
 			}
 		}
 
