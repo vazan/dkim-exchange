@@ -29,6 +29,9 @@ namespace Configuration.DkimSigner
 {
 	public partial class MainWindow : Form
 	{
+		private const string ForcedRsaSelector = "2026051800";
+		private const string ForcedEd25519Selector = "2026051801";
+
 		// ##########################################################
 		// ##################### Variables ##########################
 		// ##########################################################
@@ -509,80 +512,113 @@ namespace Configuration.DkimSigner
 
 		private void UpdateSuggestedDns(string publicKeyBase64 = "", string keyType = null)
 		{
-			string sDnsRecord = "";
-			if (publicKeyBase64 == string.Empty)
+			string domainName = txtDomainName.Text.Trim();
+			List<string> records = new List<string>();
+
+			if (!string.IsNullOrWhiteSpace(publicKeyBase64))
 			{
-				string sPrivateKeyPath = txtDomainPrivateKeyFilename.Text;
+				string resolvedKeyType = keyType ?? (rbEd25519Sha256.Checked ? "ed25519" : "rsa");
+				string selector = string.Equals(resolvedKeyType, "ed25519", StringComparison.OrdinalIgnoreCase)
+					? ForcedEd25519Selector
+					: ForcedRsaSelector;
+				records.Add(FormatDnsEntry(selector, domainName, resolvedKeyType, publicKeyBase64));
+			}
+			else if (!string.IsNullOrWhiteSpace(domainName))
+			{
+				string keyDirectory = GetDomainKeysDirectory();
+				TryAddSuggestedDnsRecord(records, Path.Combine(keyDirectory, domainName + ".ed25519.pem"), domainName, ForcedEd25519Selector, "ed25519");
+				TryAddSuggestedDnsRecord(records, Path.Combine(keyDirectory, domainName + ".rsa.pem"), domainName, ForcedRsaSelector, "rsa");
 
-				if (!Path.IsPathRooted(sPrivateKeyPath))
+				// Backward-compatible fallback for single-key setups.
+				if (records.Count == 0 && !string.IsNullOrWhiteSpace(txtDomainPrivateKeyFilename.Text))
 				{
-					sPrivateKeyPath = Path.Combine(Constants.DkimSignerPath, "keys", sPrivateKeyPath);
-				}
-
-				string sPubKeyPath;
-
-				if (File.Exists(Path.ChangeExtension(sPrivateKeyPath, ".pub")))
-					sPubKeyPath = Path.ChangeExtension(sPrivateKeyPath, ".pub");
-				else
-					sPubKeyPath = sPrivateKeyPath + ".pub";
-
-				if (!File.Exists(sPubKeyPath))
-				{
-					//the private key may contain the public key
-					sPubKeyPath = sPrivateKeyPath;
-				}
-
-				if (File.Exists(sPubKeyPath))
-				{
-
-					AsymmetricKeyParameter rdKey;
-
-					try
-					{
-						rdKey = KeyHelper.ParsePublicKey(sPubKeyPath);
-					}
-					catch (Exception ex)
-					{
-						ShowMessageBox("Key file error.", "Couldn't load public key. " + ex.Message, MessageBoxButtons.OK, MessageBoxIcon.Error);
-						return;
-					}
-
-					SubjectPublicKeyInfo publicKeyInfo = SubjectPublicKeyInfoFactory.CreateSubjectPublicKeyInfo(rdKey);
-					byte[] serializedPublicBytes;
-
-					// RFC 8463: DKIM Ed25519 requires the raw 32-byte public key in p=,
-					// while RSA keeps using DER SubjectPublicKeyInfo.
-					if (rdKey is Ed25519PublicKeyParameters ed25519PublicKey)
-					{
-						serializedPublicBytes = ed25519PublicKey.GetEncoded();
-					}
-					else
-					{
-						serializedPublicBytes = publicKeyInfo.ToAsn1Object().GetDerEncoded();
-					}
-					publicKeyBase64 = Convert.ToBase64String(serializedPublicBytes);
-					if (keyType == null)
-					{
-						keyType = rdKey is Ed25519PublicKeyParameters ? "ed25519" : "rsa";
-					}
-				}
-				else
-				{
-					sDnsRecord = "No public key found:\n" + sPubKeyPath;
+					TryAddSuggestedDnsRecord(records, ResolvePublicKeyPath(txtDomainPrivateKeyFilename.Text), domainName, txtDomainSelector.Text, null);
 				}
 			}
 
-			if (publicKeyBase64 != null && publicKeyBase64 != string.Empty)
-			{
-				if (keyType == null)
-				{
-					keyType = rbEd25519Sha256.Checked ? "ed25519" : "rsa";
-				}
-				sDnsRecord = "v=DKIM1; k=" + keyType + "; p=" + publicKeyBase64;
-			}
-
-			txtDNSRecord.Text = sDnsRecord;
+			txtDNSRecord.Text = records.Count > 0
+				? string.Join("\r\n\r\n", records)
+				: "No key found. Generate/select keys first.";
 			lblDomainDNSCheckResult.Visible = false;
+		}
+
+		private string GetDomainKeysDirectory()
+		{
+			if (!string.IsNullOrWhiteSpace(txtDomainPrivateKeyFilename.Text))
+			{
+				string privateKeyPath = txtDomainPrivateKeyFilename.Text;
+				if (!Path.IsPathRooted(privateKeyPath))
+				{
+					privateKeyPath = Path.Combine(Constants.DkimSignerPath, "keys", privateKeyPath);
+				}
+
+				string existingDirectory = Path.GetDirectoryName(privateKeyPath);
+				if (!string.IsNullOrWhiteSpace(existingDirectory))
+				{
+					return existingDirectory;
+				}
+			}
+
+			return Path.Combine(Constants.DkimSignerPath, "keys");
+		}
+
+		private string ResolvePublicKeyPath(string privateOrPublicPath)
+		{
+			string resolvedPath = privateOrPublicPath;
+			if (!Path.IsPathRooted(resolvedPath))
+			{
+				resolvedPath = Path.Combine(Constants.DkimSignerPath, "keys", resolvedPath);
+			}
+
+			string withPubExtension = Path.ChangeExtension(resolvedPath, ".pub");
+			if (File.Exists(withPubExtension))
+			{
+				return withPubExtension;
+			}
+
+			string appendedPub = resolvedPath + ".pub";
+			if (File.Exists(appendedPub))
+			{
+				return appendedPub;
+			}
+
+			return resolvedPath;
+		}
+
+		private void TryAddSuggestedDnsRecord(List<string> records, string keyPath, string domainName, string selector, string keyType)
+		{
+			if (!File.Exists(keyPath))
+			{
+				return;
+			}
+
+			try
+			{
+				AsymmetricKeyParameter publicKey = KeyHelper.ParsePublicKey(keyPath);
+				string resolvedKeyType = keyType ?? (publicKey is Ed25519PublicKeyParameters ? "ed25519" : "rsa");
+
+				byte[] dnsPublicBytes;
+				if (publicKey is Ed25519PublicKeyParameters ed25519PublicKey)
+				{
+					dnsPublicBytes = ed25519PublicKey.GetEncoded();
+				}
+				else
+				{
+					SubjectPublicKeyInfo publicKeyInfo = SubjectPublicKeyInfoFactory.CreateSubjectPublicKeyInfo(publicKey);
+					dnsPublicBytes = publicKeyInfo.ToAsn1Object().GetDerEncoded();
+				}
+
+				records.Add(FormatDnsEntry(selector, domainName, resolvedKeyType, Convert.ToBase64String(dnsPublicBytes)));
+			}
+			catch
+			{
+				// Ignore invalid keys in suggested list and keep any valid records.
+			}
+		}
+
+		private static string FormatDnsEntry(string selector, string domainName, string keyType, string publicKeyBase64)
+		{
+			return "Name: " + selector + "._domainkey." + domainName + ".\r\nTXT: v=DKIM1; k=" + keyType + "; p=" + publicKeyBase64;
 		}
 
 		/// <summary>
@@ -852,6 +888,7 @@ namespace Configuration.DkimSigner
 			}
 
 			lbxDomains.ClearSelected();
+			txtDomainSelector.Text = ForcedEd25519Selector;
 			txtDNSRecord.Text = "";
 			txtDNSName.Text = "";
 			txtDNSRecord.Text = "";
@@ -947,8 +984,100 @@ namespace Configuration.DkimSigner
                 }
 				if (result == DialogResult.OK)
 				{
-					GenerateKey(oFileDialog.FileName);
+					if (!string.IsNullOrWhiteSpace(txtDomainName.Text))
+					{
+						string directory = Path.GetDirectoryName(oFileDialog.FileName);
+						if (string.IsNullOrWhiteSpace(directory))
+						{
+							ShowMessageBox("Key file error.", "Couldn't determine key target directory.", MessageBoxButtons.OK, MessageBoxIcon.Error);
+							return;
+						}
+
+						GenerateDualKeys(directory, txtDomainName.Text.Trim());
+					}
+					else
+					{
+						GenerateKey(oFileDialog.FileName);
+					}
 				}
+			}
+		}
+
+		private void GenerateDualKeys(string keyDirectory, string domainName)
+		{
+			string rsaPath = Path.Combine(keyDirectory, domainName + ".rsa.pem");
+			string ed25519Path = Path.Combine(keyDirectory, domainName + ".ed25519.pem");
+
+			if ((File.Exists(rsaPath) || File.Exists(ed25519Path)) &&
+				ShowMessageBox("Overwrite", "One or more key files already exist for this domain. Overwrite both RSA and Ed25519 keys?", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == DialogResult.No)
+			{
+				return;
+			}
+
+			try
+			{
+				RsaKeyPairGenerator rsaGenerator = new RsaKeyPairGenerator();
+				rsaGenerator.Init(new KeyGenerationParameters(new SecureRandom(), Convert.ToInt32(cbKeyLength.Text, 10)));
+				AsymmetricCipherKeyPair rsaPair = rsaGenerator.GenerateKeyPair();
+
+				Ed25519KeyPairGenerator edGenerator = new Ed25519KeyPairGenerator();
+				edGenerator.Init(new Ed25519KeyGenerationParameters(new SecureRandom()));
+				AsymmetricCipherKeyPair edPair = edGenerator.GenerateKeyPair();
+
+				WriteKeyPairFiles(rsaPath, rsaPair);
+				WriteKeyPairFiles(ed25519Path, edPair);
+			}
+			catch (Exception ex)
+			{
+				ShowMessageBox("Key file error.", "Couldn't save dual key pair:\n" + ex.Message, MessageBoxButtons.OK, MessageBoxIcon.Error);
+				return;
+			}
+
+			txtDomainSelector.Text = ForcedEd25519Selector;
+			string keyRoot = Path.Combine(Constants.DkimSignerPath, "keys");
+			if (ed25519Path.StartsWith(keyRoot + "\\", StringComparison.OrdinalIgnoreCase))
+			{
+				txtDomainPrivateKeyFilename.Text = ed25519Path.Substring(keyRoot.Length + 1);
+			}
+			else
+			{
+				txtDomainPrivateKeyFilename.Text = ed25519Path;
+			}
+			btDomainSave.Enabled = true;
+			bDataUpdated = true;
+			UpdateSuggestedDns();
+		}
+
+		private static void WriteKeyPairFiles(string privateKeyPath, AsymmetricCipherKeyPair pair)
+		{
+			Org.BouncyCastle.Asn1.Pkcs.PrivateKeyInfo privateKeyInfo = PrivateKeyInfoFactory.CreatePrivateKeyInfo(pair.Private);
+			byte[] serializedPrivateBytes = privateKeyInfo.ToAsn1Object().GetDerEncoded();
+
+			SubjectPublicKeyInfo publicKeyInfo = SubjectPublicKeyInfoFactory.CreateSubjectPublicKeyInfo(pair.Public);
+			byte[] serializedPublicBytes = publicKeyInfo.ToAsn1Object().GetDerEncoded();
+
+			string privateKeyBase64 = Convert.ToBase64String(serializedPrivateBytes);
+			using (StreamWriter file = new StreamWriter(privateKeyPath))
+			{
+				file.WriteLine("-----BEGIN PRIVATE KEY-----");
+				for (int i = 0; i < privateKeyBase64.Length; i += 64)
+				{
+					int length = Math.Min(64, privateKeyBase64.Length - i);
+					file.WriteLine(privateKeyBase64.Substring(i, length));
+				}
+				file.WriteLine("-----END PRIVATE KEY-----");
+			}
+
+			string publicKeyBase64 = Convert.ToBase64String(serializedPublicBytes);
+			using (StreamWriter file = new StreamWriter(privateKeyPath + ".pub"))
+			{
+				file.WriteLine("-----BEGIN PUBLIC KEY-----");
+				for (int i = 0; i < publicKeyBase64.Length; i += 64)
+				{
+					int length = Math.Min(64, publicKeyBase64.Length - i);
+					file.WriteLine(publicKeyBase64.Substring(i, length));
+				}
+				file.WriteLine("-----END PUBLIC KEY-----");
 			}
 		}
 
@@ -1136,9 +1265,24 @@ namespace Configuration.DkimSigner
 					txtDomainDNS.Text = oTxtRecord.TXT.Count > 0 ? string.Join(string.Empty, oTxtRecord.TXT) : "No record found for " + sFullDomain;
 					if (oTxtRecord.TXT.Count > 0)
 					{
-						//check if public key matches suggested
+						// Check if public key matches the suggested record for the selected selector.
 						var matchesDns = Regex.Matches(txtDomainDNS.Text, @";\s*p=([^\s]+)");
-						var matchesSuggested = Regex.Matches(txtDNSRecord.Text, @";\s*p=([^\s]+)");
+						string suggestedBlock = null;
+						string[] blocks = txtDNSRecord.Text.Split(new[] { "\r\n\r\n" }, StringSplitOptions.RemoveEmptyEntries);
+						foreach (string block in blocks)
+						{
+							if (block.IndexOf("Name: " + sFullDomain + ".", StringComparison.OrdinalIgnoreCase) >= 0 ||
+								block.IndexOf("Name: " + sFullDomain, StringComparison.OrdinalIgnoreCase) >= 0)
+							{
+								suggestedBlock = block;
+								break;
+							}
+						}
+						if (suggestedBlock == null)
+						{
+							suggestedBlock = txtDNSRecord.Text;
+						}
+						var matchesSuggested = Regex.Matches(suggestedBlock, @";\s*p=([^\s]+)");
 						if (matchesDns.Count == 0 || matchesDns[0].Groups.Count <= 1)
 						{
 							lblDomainDNSCheckResult.Text = "Could not extract public key from DNS record.";
@@ -1231,6 +1375,11 @@ namespace Configuration.DkimSigner
 		/// </summary>
 		private bool ValidateKeyTypeMatchesAlgorithm()
 		{
+			if (HasDualKeyPairForCurrentDomain())
+			{
+				return true;
+			}
+
 			string sPrivateKeyPath = txtDomainPrivateKeyFilename.Text;
 			if (string.IsNullOrWhiteSpace(sPrivateKeyPath))
 			{
@@ -1282,6 +1431,20 @@ namespace Configuration.DkimSigner
 				ShowMessageBox("Key validation error", "Could not validate key: " + ex.Message, MessageBoxButtons.OK, MessageBoxIcon.Error);
 				return false;
 			}
+		}
+
+		private bool HasDualKeyPairForCurrentDomain()
+		{
+			string domainName = txtDomainName.Text.Trim();
+			if (string.IsNullOrWhiteSpace(domainName))
+			{
+				return false;
+			}
+
+			string directory = GetDomainKeysDirectory();
+			string rsaPath = Path.Combine(directory, domainName + ".rsa.pem");
+			string edPath = Path.Combine(directory, domainName + ".ed25519.pem");
+			return File.Exists(rsaPath) && File.Exists(edPath);
 		}
 
 		/// <summary>
