@@ -52,6 +52,12 @@ namespace Configuration.DkimSigner
 		{
 			InitializeComponent();
 
+			// Dual-sign mode is automatic (RSA + Ed25519), so hide manual algorithm selection.
+			gbAlgorithm.Visible = false;
+			gbHeaderCanonicalization.Top = 6;
+			gbBodyCanonicalization.Top = gbHeaderCanonicalization.Bottom + 6;
+			gbLogLevel.Top = gbBodyCanonicalization.Bottom + 6;
+
 			cbLogLevel.SelectedItem = "Information";
 			cbKeyLength.SelectedItem = UserPreferences.Default.KeyLength.ToString();
 
