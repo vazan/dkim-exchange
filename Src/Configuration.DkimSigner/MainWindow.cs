@@ -11,6 +11,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using System.Linq;
 using Configuration.DkimSigner.Exchange;
 using Configuration.DkimSigner.GitHub;
 using Exchange.DkimSigner.Configuration;
@@ -1318,99 +1319,203 @@ namespace Configuration.DkimSigner
 		/// <param name="e"></param>
 		private void btDomainCheckDNS_Click(object sender, EventArgs e)
 		{
-			string sFullDomain = txtDomainSelector.Text + "._domainkey." + txtDomainName.Text;
+			string fallbackDomain = txtDomainSelector.Text + "._domainkey." + txtDomainName.Text;
+			Dictionary<string, string> suggestedPublicKeys = ExtractSuggestedPublicKeysByName(txtDNSRecord.Text);
+			List<string> domainsToCheck = suggestedPublicKeys.Keys.ToList();
+			if (domainsToCheck.Count == 0)
+			{
+				domainsToCheck.Add(fallbackDomain);
+			}
+
 			lblDomainDNSCheckResult.Visible = false;
+			List<string> dnsOutput = new List<string>();
+			List<string> errors = new List<string>();
+			int matches = 0;
 
 			try
 			{
-				Resolver oResolver = new Resolver();
-				Response oResponse;
-				oResolver.Recursion = true;
-				oResolver.UseCache = false;
-				if (rbDnsGoogle.Checked)
+				foreach (string domainToCheck in domainsToCheck)
 				{
-					oResolver.DnsServer = "8.8.8.8";
-				}
-				else if (rbDnsCloudflare.Checked)
-				{
-					oResolver.DnsServer = "1.1.1.1";
-				}
-
-				if (cbBypasNSCache.Checked && rbDnsLocal.Checked)
-				{
-					// Get the name server for the domain to avoid DNS caching
-					oResponse = oResolver.Query(sFullDomain, QType.NS, QClass.IN);
-					if (oResponse.RecordsRR.GetLength(0) > 0)
+					Resolver oResolver = new Resolver();
+					Response oResponse;
+					oResolver.Recursion = true;
+					oResolver.UseCache = false;
+					if (rbDnsGoogle.Checked)
 					{
-						RR oNsRecord = oResponse.RecordsRR[0];
-						if (oNsRecord.RECORD.RR.RECORD.GetType() == typeof(RecordSOA))
-						{
-							RecordSOA oSoaRecord = (RecordSOA)oNsRecord.RECORD.RR.RECORD;
-							oResolver.DnsServer = oSoaRecord.MNAME;
-						}
+						oResolver.DnsServer = "8.8.8.8";
 					}
-				}
-
-				// Get the TXT record for DKIM
-				oResponse = oResolver.Query(sFullDomain, QType.TXT, QClass.IN);
-				if (oResponse.RecordsTXT.GetLength(0) > 0)
-				{
-					RecordTXT oTxtRecord = oResponse.RecordsTXT[0];
-					txtDomainDNS.Text = oTxtRecord.TXT.Count > 0 ? string.Join(string.Empty, oTxtRecord.TXT) : "No record found for " + sFullDomain;
-					if (oTxtRecord.TXT.Count > 0)
+					else if (rbDnsCloudflare.Checked)
 					{
-						// Check if public key matches the suggested record for the selected selector.
-						var matchesDns = Regex.Matches(txtDomainDNS.Text, @";\s*p=([^\s]+)");
-						string suggestedBlock = null;
-						string[] blocks = txtDNSRecord.Text.Split(new[] { "\r\n\r\n" }, StringSplitOptions.RemoveEmptyEntries);
-						foreach (string block in blocks)
+						oResolver.DnsServer = "1.1.1.1";
+					}
+
+					if (cbBypasNSCache.Checked && rbDnsLocal.Checked)
+					{
+						// Get the name server for the domain to avoid DNS caching.
+						oResponse = oResolver.Query(domainToCheck, QType.NS, QClass.IN);
+						if (oResponse.RecordsRR.GetLength(0) > 0)
 						{
-							if (block.IndexOf("Name: " + sFullDomain + ".", StringComparison.OrdinalIgnoreCase) >= 0 ||
-								block.IndexOf("Name: " + sFullDomain, StringComparison.OrdinalIgnoreCase) >= 0)
+							RR oNsRecord = oResponse.RecordsRR[0];
+							if (oNsRecord.RECORD.RR.RECORD.GetType() == typeof(RecordSOA))
 							{
-								suggestedBlock = block;
-								break;
+								RecordSOA oSoaRecord = (RecordSOA)oNsRecord.RECORD.RR.RECORD;
+								oResolver.DnsServer = oSoaRecord.MNAME;
 							}
 						}
-						if (suggestedBlock == null)
+					}
+
+					// Get TXT records for DKIM and use the first entry that contains a p= value.
+					oResponse = oResolver.Query(domainToCheck, QType.TXT, QClass.IN);
+					if (oResponse.RecordsTXT.GetLength(0) == 0)
+					{
+						dnsOutput.Add("No record found for " + domainToCheck);
+						errors.Add("No DNS TXT record found for " + domainToCheck + ".");
+						continue;
+					}
+
+					string dnsRecordText = null;
+					string dnsPublicKey = null;
+					for (int i = 0; i < oResponse.RecordsTXT.GetLength(0); i++)
+					{
+						RecordTXT txtRecord = oResponse.RecordsTXT[i];
+						if (txtRecord.TXT.Count == 0)
 						{
-							suggestedBlock = txtDNSRecord.Text;
-						}
-						var matchesSuggested = Regex.Matches(suggestedBlock, @";\s*p=([^\s]+)");
-						if (matchesDns.Count == 0 || matchesDns[0].Groups.Count <= 1)
-						{
-							lblDomainDNSCheckResult.Text = "Could not extract public key from DNS record.";
-							lblDomainDNSCheckResult.ForeColor = Color.Firebrick;
-						}
-						else if (matchesSuggested.Count == 0 || matchesSuggested[0].Groups.Count <= 1)
-						{
-							lblDomainDNSCheckResult.Text = "Could not extract public key from suggested DNS record.";
-							lblDomainDNSCheckResult.ForeColor = Color.Firebrick;
-						}
-						else if (String.Compare(matchesDns[0].Groups[1].ToString(), matchesSuggested[0].Groups[1].ToString(), StringComparison.Ordinal) == 0)
-						{
-							lblDomainDNSCheckResult.Text = "DNS record public key is correct";
-							lblDomainDNSCheckResult.ForeColor = Color.Green;
-						}
-						else
-						{
-							lblDomainDNSCheckResult.Text = "DNS record public key does not match";
-							lblDomainDNSCheckResult.ForeColor = Color.Firebrick;
+							continue;
 						}
 
-						lblDomainDNSCheckResult.Visible = true;
+						string candidateRecord = string.Join(string.Empty, txtRecord.TXT);
+						string candidateKey = ExtractPublicKeyFromDkimRecord(candidateRecord);
+						if (!string.IsNullOrWhiteSpace(candidateKey))
+						{
+							dnsRecordText = candidateRecord;
+							dnsPublicKey = candidateKey;
+							break;
+						}
 					}
+
+					if (string.IsNullOrWhiteSpace(dnsRecordText))
+					{
+						RecordTXT firstRecord = oResponse.RecordsTXT[0];
+						dnsRecordText = firstRecord.TXT.Count > 0 ? string.Join(string.Empty, firstRecord.TXT) : string.Empty;
+					}
+
+					dnsOutput.Add(domainToCheck + ": " + dnsRecordText);
+
+					string expectedPublicKey;
+					if (!suggestedPublicKeys.TryGetValue(NormalizeDnsName(domainToCheck), out expectedPublicKey))
+					{
+						errors.Add("Could not extract suggested public key for " + domainToCheck + ".");
+						continue;
+					}
+
+					if (string.IsNullOrWhiteSpace(dnsPublicKey))
+					{
+						errors.Add("Could not extract public key from DNS record for " + domainToCheck + ".");
+						continue;
+					}
+
+					if (String.Compare(dnsPublicKey, expectedPublicKey, StringComparison.Ordinal) == 0)
+					{
+						matches++;
+					}
+					else
+					{
+						errors.Add("DNS record public key does not match for " + domainToCheck + ".");
+					}
+				}
+
+				txtDomainDNS.Text = string.Join(Environment.NewLine + Environment.NewLine, dnsOutput);
+
+				if (errors.Count == 0)
+				{
+					lblDomainDNSCheckResult.Text = matches == 1 ? "DNS record public key is correct" : "All DNS record public keys are correct";
+					lblDomainDNSCheckResult.ForeColor = Color.Green;
 				}
 				else
 				{
-					txtDomainDNS.Text = "No record found for " + sFullDomain;
+					lblDomainDNSCheckResult.Text = string.Join(" ", errors);
+					lblDomainDNSCheckResult.ForeColor = Color.Firebrick;
 				}
+
+				lblDomainDNSCheckResult.Visible = true;
 			}
 			catch (Exception ex)
 			{
 				ShowMessageBox("Error", "Coldn't get DNS record:\n" + ex.Message, MessageBoxButtons.OK, MessageBoxIcon.Error);
 				txtDomainDNS.Text = "Error getting record.";
 			}
+		}
+
+		private static Dictionary<string, string> ExtractSuggestedPublicKeysByName(string suggestedDnsText)
+		{
+			Dictionary<string, string> entries = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+			string currentName = null;
+			string[] lines = suggestedDnsText.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None);
+
+			foreach (string rawLine in lines)
+			{
+				string line = rawLine.Trim();
+				if (line.StartsWith("Name:", StringComparison.OrdinalIgnoreCase))
+				{
+					currentName = NormalizeDnsName(line.Substring(5).Trim());
+					continue;
+				}
+
+				if (currentName != null && line.StartsWith("Data:", StringComparison.OrdinalIgnoreCase))
+				{
+					string publicKey = ExtractPublicKeyFromDkimRecord(line.Substring(5).Trim());
+					if (!string.IsNullOrWhiteSpace(publicKey) && !entries.ContainsKey(currentName))
+					{
+						entries.Add(currentName, publicKey);
+					}
+
+					currentName = null;
+				}
+			}
+
+			return entries;
+		}
+
+		private static string NormalizeDnsName(string dnsName)
+		{
+			if (string.IsNullOrWhiteSpace(dnsName))
+			{
+				return string.Empty;
+			}
+
+			return dnsName.Trim().TrimEnd('.').ToLowerInvariant();
+		}
+
+		private static string ExtractPublicKeyFromDkimRecord(string dkimRecord)
+		{
+			if (string.IsNullOrWhiteSpace(dkimRecord))
+			{
+				return null;
+			}
+
+			Match match = Regex.Match(dkimRecord, @"(?:^|;)\s*p\s*=\s*(?<key>[^;]+)", RegexOptions.IgnoreCase);
+			if (!match.Success)
+			{
+				return null;
+			}
+
+			return CanonicalizeDkimTagValue(match.Groups["key"].Value);
+		}
+
+		private static string CanonicalizeDkimTagValue(string value)
+		{
+			if (string.IsNullOrWhiteSpace(value))
+			{
+				return string.Empty;
+			}
+
+			string trimmed = value.Trim();
+			if (trimmed.Length >= 2 && trimmed.StartsWith("\"") && trimmed.EndsWith("\""))
+			{
+				trimmed = trimmed.Substring(1, trimmed.Length - 2);
+			}
+
+			return Regex.Replace(trimmed, @"\s+", string.Empty);
 		}
 
 		/// <summary>
