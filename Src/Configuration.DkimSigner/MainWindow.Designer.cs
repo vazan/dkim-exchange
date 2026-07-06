@@ -154,7 +154,7 @@
 			this.tcConfiguration.Location = new System.Drawing.Point(12, 12);
 			this.tcConfiguration.Name = "tcConfiguration";
 			this.tcConfiguration.SelectedIndex = 0;
-			this.tcConfiguration.Size = new System.Drawing.Size(715, 476);
+			this.tcConfiguration.Size = new System.Drawing.Size(715, 566);
 			this.tcConfiguration.TabIndex = 0;
 			this.tcConfiguration.SelectedIndexChanged += new System.EventHandler(this.tcConfiguration_SelectedIndexChanged);
 			// 
@@ -164,7 +164,7 @@
 			this.tbInformation.Controls.Add(this.gbExchange);
 			this.tbInformation.Location = new System.Drawing.Point(4, 29);
 			this.tbInformation.Name = "tbInformation";
-			this.tbInformation.Size = new System.Drawing.Size(707, 443);
+			this.tbInformation.Size = new System.Drawing.Size(707, 533);
 			this.tbInformation.TabIndex = 2;
 			this.tbInformation.Text = "Information";
 			this.tbInformation.UseVisualStyleBackColor = true;
@@ -380,7 +380,7 @@
 			this.tpDKIM.Location = new System.Drawing.Point(4, 29);
 			this.tpDKIM.Name = "tpDKIM";
 			this.tpDKIM.Padding = new System.Windows.Forms.Padding(3);
-			this.tpDKIM.Size = new System.Drawing.Size(707, 443);
+			this.tpDKIM.Size = new System.Drawing.Size(707, 533);
 			this.tpDKIM.TabIndex = 0;
 			this.tpDKIM.Text = "DKIM Settings";
 			this.tpDKIM.UseVisualStyleBackColor = true;
@@ -593,7 +593,7 @@
 			this.tpDomain.Location = new System.Drawing.Point(4, 29);
 			this.tpDomain.Name = "tpDomain";
 			this.tpDomain.Padding = new System.Windows.Forms.Padding(3);
-			this.tpDomain.Size = new System.Drawing.Size(707, 443);
+			this.tpDomain.Size = new System.Drawing.Size(707, 533);
 			this.tpDomain.TabIndex = 1;
 			this.tpDomain.Text = "Domain Settings";
 			this.tpDomain.UseVisualStyleBackColor = true;
@@ -607,7 +607,7 @@
 			this.gbDomain.Controls.Add(this.btDomainDelete);
 			this.gbDomain.Location = new System.Drawing.Point(6, 9);
 			this.gbDomain.Name = "gbDomain";
-			this.gbDomain.Size = new System.Drawing.Size(151, 431);
+			this.gbDomain.Size = new System.Drawing.Size(151, 521);
 			this.gbDomain.TabIndex = 0;
 			this.gbDomain.TabStop = false;
 			this.gbDomain.Text = "Domains";
@@ -620,7 +620,7 @@
 			this.lbxDomains.IntegralHeight = false;
 			this.lbxDomains.Location = new System.Drawing.Point(6, 19);
 			this.lbxDomains.Name = "lbxDomains";
-			this.lbxDomains.Size = new System.Drawing.Size(139, 377);
+			this.lbxDomains.Size = new System.Drawing.Size(139, 467);
 			this.lbxDomains.Sorted = true;
 			this.lbxDomains.TabIndex = 0;
 			this.lbxDomains.SelectedIndexChanged += new System.EventHandler(this.lbxDomains_SelectedIndexChanged);
@@ -628,7 +628,7 @@
 			// btAddDomain
 			// 
 			this.btAddDomain.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
-			this.btAddDomain.Location = new System.Drawing.Point(6, 402);
+			this.btAddDomain.Location = new System.Drawing.Point(6, 492);
 			this.btAddDomain.Name = "btAddDomain";
 			this.btAddDomain.Size = new System.Drawing.Size(65, 23);
 			this.btAddDomain.TabIndex = 1;
@@ -639,7 +639,7 @@
 			// btDomainDelete
 			// 
 			this.btDomainDelete.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
-			this.btDomainDelete.Location = new System.Drawing.Point(80, 402);
+			this.btDomainDelete.Location = new System.Drawing.Point(80, 492);
 			this.btDomainDelete.Name = "btDomainDelete";
 			this.btDomainDelete.Size = new System.Drawing.Size(65, 23);
 			this.btDomainDelete.TabIndex = 2;
@@ -677,7 +677,7 @@
 			this.gbxDomainDetails.Enabled = false;
 			this.gbxDomainDetails.Location = new System.Drawing.Point(163, 9);
 			this.gbxDomainDetails.Name = "gbxDomainDetails";
-			this.gbxDomainDetails.Size = new System.Drawing.Size(538, 431);
+			this.gbxDomainDetails.Size = new System.Drawing.Size(538, 521);
 			this.gbxDomainDetails.TabIndex = 1;
 			this.gbxDomainDetails.TabStop = false;
 			this.gbxDomainDetails.Text = "Domain details";
@@ -687,7 +687,7 @@
 			this.gbDnsResolver.Controls.Add(this.rbDnsCloudflare);
 			this.gbDnsResolver.Controls.Add(this.rbDnsGoogle);
 			this.gbDnsResolver.Controls.Add(this.rbDnsLocal);
-			this.gbDnsResolver.Location = new System.Drawing.Point(141, 280);
+			this.gbDnsResolver.Location = new System.Drawing.Point(141, 125);
 			this.gbDnsResolver.Name = "gbDnsResolver";
 			this.gbDnsResolver.Size = new System.Drawing.Size(385, 45);
 			this.gbDnsResolver.TabIndex = 20;
@@ -731,7 +731,7 @@
 			this.cbBypasNSCache.AutoSize = true;
 			this.cbBypasNSCache.Checked = true;
 			this.cbBypasNSCache.CheckState = System.Windows.Forms.CheckState.Checked;
-			this.cbBypasNSCache.Location = new System.Drawing.Point(10, 345);
+			this.cbBypasNSCache.Location = new System.Drawing.Point(10, 434);
 			this.cbBypasNSCache.Name = "cbBypasNSCache";
 			this.cbBypasNSCache.Size = new System.Drawing.Size(105, 17);
 			this.cbBypasNSCache.TabIndex = 21;
@@ -740,7 +740,7 @@
 			// 
 			// btCopyToClipboard
 			// 
-			this.btCopyToClipboard.Location = new System.Drawing.Point(10, 155);
+			this.btCopyToClipboard.Location = new System.Drawing.Point(10, 205);
 			this.btCopyToClipboard.Name = "btCopyToClipboard";
 			this.btCopyToClipboard.Size = new System.Drawing.Size(125, 23);
 			this.btCopyToClipboard.TabIndex = 14;
@@ -751,7 +751,7 @@
 			// lblDomainDNSCheckResult
 			// 
 			this.lblDomainDNSCheckResult.AutoSize = true;
-			this.lblDomainDNSCheckResult.Location = new System.Drawing.Point(138, 381);
+			this.lblDomainDNSCheckResult.Location = new System.Drawing.Point(138, 434);
 			this.lblDomainDNSCheckResult.Name = "lblDomainDNSCheckResult";
 			this.lblDomainDNSCheckResult.Size = new System.Drawing.Size(110, 13);
 			this.lblDomainDNSCheckResult.TabIndex = 18;
@@ -800,7 +800,7 @@
 			// lbExistingDns
 			// 
 			this.lbExistingDns.AutoSize = true;
-			this.lbExistingDns.Location = new System.Drawing.Point(63, 253);
+			this.lbExistingDns.Location = new System.Drawing.Point(63, 304);
 			this.lbExistingDns.Name = "lbExistingDns";
 			this.lbExistingDns.Size = new System.Drawing.Size(72, 13);
 			this.lbExistingDns.TabIndex = 15;
@@ -809,7 +809,7 @@
 			// lbSuggestedDnsRecord
 			// 
 			this.lbSuggestedDnsRecord.AutoSize = true;
-			this.lbSuggestedDnsRecord.Location = new System.Drawing.Point(15, 128);
+			this.lbSuggestedDnsRecord.Location = new System.Drawing.Point(15, 178);
 			this.lbSuggestedDnsRecord.Name = "lbSuggestedDnsRecord";
 			this.lbSuggestedDnsRecord.Size = new System.Drawing.Size(120, 13);
 			this.lbSuggestedDnsRecord.TabIndex = 12;
@@ -819,7 +819,7 @@
 			// 
 			this.txtDNSRecord.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
-			this.txtDNSRecord.Location = new System.Drawing.Point(141, 125);
+			this.txtDNSRecord.Location = new System.Drawing.Point(141, 175);
 			this.txtDNSRecord.Name = "txtDNSRecord";
 			this.txtDNSRecord.ReadOnly = true;
 			this.txtDNSRecord.ScrollBars = System.Windows.Forms.RichTextBoxScrollBars.Vertical;
@@ -828,7 +828,7 @@
 			// 
 			// btDomainCheckDNS
 			// 
-			this.btDomainCheckDNS.Location = new System.Drawing.Point(10, 280);
+			this.btDomainCheckDNS.Location = new System.Drawing.Point(10, 333);
 			this.btDomainCheckDNS.Name = "btDomainCheckDNS";
 			this.btDomainCheckDNS.Size = new System.Drawing.Size(125, 23);
 			this.btDomainCheckDNS.TabIndex = 17;
@@ -840,7 +840,7 @@
 			// 
 			this.txtDomainDNS.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
-			this.txtDomainDNS.Location = new System.Drawing.Point(141, 253);
+			this.txtDomainDNS.Location = new System.Drawing.Point(141, 304);
 			this.txtDomainDNS.Multiline = true;
 			this.txtDomainDNS.Name = "txtDomainDNS";
 			this.txtDomainDNS.ReadOnly = true;
@@ -852,7 +852,7 @@
 			// 
 			this.btDomainSave.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
-			this.btDomainSave.Location = new System.Drawing.Point(10, 402);
+			this.btDomainSave.Location = new System.Drawing.Point(10, 492);
 			this.btDomainSave.Name = "btDomainSave";
 			this.btDomainSave.Size = new System.Drawing.Size(516, 23);
 			this.btDomainSave.TabIndex = 19;
@@ -947,7 +947,7 @@
 			this.tpLog.Location = new System.Drawing.Point(4, 29);
 			this.tpLog.Name = "tpLog";
 			this.tpLog.Padding = new System.Windows.Forms.Padding(3);
-			this.tpLog.Size = new System.Drawing.Size(707, 443);
+			this.tpLog.Size = new System.Drawing.Size(707, 533);
 			this.tpLog.TabIndex = 4;
 			this.tpLog.Text = "Event Log Viewer";
 			this.tpLog.UseVisualStyleBackColor = true;
@@ -1035,7 +1035,7 @@
 			this.tpAbout.Controls.Add(this.picLogo);
 			this.tpAbout.Location = new System.Drawing.Point(4, 29);
 			this.tpAbout.Name = "tpAbout";
-			this.tpAbout.Size = new System.Drawing.Size(707, 443);
+			this.tpAbout.Size = new System.Drawing.Size(707, 533);
 			this.tpAbout.TabIndex = 3;
 			this.tpAbout.Text = "About";
 			this.tpAbout.UseVisualStyleBackColor = true;
@@ -1108,7 +1108,7 @@
 			this.tpDebug.Location = new System.Drawing.Point(4, 29);
 			this.tpDebug.Name = "tpDebug";
 			this.tpDebug.Padding = new System.Windows.Forms.Padding(3);
-			this.tpDebug.Size = new System.Drawing.Size(707, 443);
+			this.tpDebug.Size = new System.Drawing.Size(707, 533);
 			this.tpDebug.TabIndex = 5;
 			this.tpDebug.Text = "Debug Helper";
 			this.tpDebug.UseVisualStyleBackColor = true;
@@ -1149,10 +1149,10 @@
 			// 
 			this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
 			this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-			this.ClientSize = new System.Drawing.Size(739, 512);
+			this.ClientSize = new System.Drawing.Size(739, 602);
 			this.Controls.Add(this.tcConfiguration);
 			this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
-			this.MinimumSize = new System.Drawing.Size(755, 551);
+			this.MinimumSize = new System.Drawing.Size(755, 641);
 			this.Name = "MainWindow";
 			this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
 			this.Text = "Exchange DKIM Signer";
