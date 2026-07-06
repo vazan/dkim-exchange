@@ -1,51 +1,45 @@
 # DEV CHANGE REPORT
 
 ## Scope
-Fix the Information tab install flow so it no longer drops into a broken ZIP installer path when the local DKIM signer DLL already exists, and prevent the installer form from closing itself while its progress UI is running.
+Generate a single flattened build output under Resources/build whenever the solution is compiled, while preserving the existing project-local bin output layout used by the projects themselves.
 
 ## Classification
 STANDARD
 
 ## Files Changed
-- Src/Configuration.DkimSigner/MainWindow.cs
-- Src/Configuration.DkimSigner/InstallWindow.Designer.cs
+- Directory.Build.targets
 
 ## What Changed
-1. Updated the Information tab `btUpgrade_Click` handler to detect an already-present local `ExchangeDkimSigner.dll` in the installed application directory.
-2. In that local-binary state, the button now:
-   - ensures the DKIM event log source exists,
-   - calls `ExchangeServer.InstallDkimTransportAgent()`,
-   - restarts the Exchange transport service when it is currently running,
-   - refreshes installed-status UI afterward.
-3. Kept the existing `InstallWindow` ZIP flow as the fallback when the local DLL is not present.
-4. Removed incorrect `DialogResult.OK` assignments from the installer form's Browse and Install buttons so the modal window no longer self-closes or corrupts its own progress workflow.
+1. Added a repository-level `Directory.Build.targets` file so both legacy `.csproj` projects automatically participate without changing their individual `OutputPath` settings.
+2. Flattened the mirror target so every file from each project's `$(TargetDir)` is copied directly into `Resources/build` instead of a nested `Src/<ProjectName>/bin/<Configuration>` tree.
+3. Kept the shared-folder behavior so `Configuration.DkimSigner` and `Exchange.DkimSigner` outputs end up side by side in the same build folder.
+4. Kept a matching `AfterTargets="Clean"` target that removes the mirrored `Resources/build` folder.
 
 ## Why This Fixes The Issue
-- The Information tab previously always opened the ZIP installer, even when the only missing step was Exchange transport-agent registration for a DLL already on disk.
-- The installer form also had modal-button wiring that conflicted with its in-place progress UI, which matches the broken-window behavior reported.
-- The new behavior uses the existing Exchange registration API for the local-DLL scenario and leaves ZIP installation only for actual package installs.
+- A single flat `Resources/build` folder is easier to consume directly when installing or packaging from local build artifacts.
+- Copying both project outputs into that shared folder means the configurator executable and transport-agent DLL are already colocated, which removes the need to gather files from multiple subdirectories.
 
 ## Public Contract Impact
-- No persisted config schema changes.
-- No public API or transport-agent contract changes; this only changes UI routing and installer dialog behavior.
+- No code or public API changes.
+- No changes to project output paths consumed by Visual Studio or existing compile behavior beyond the additional mirrored artifacts.
 
 ## Validation
-- Local file diagnostics: no errors in `MainWindow.cs` or `InstallWindow.Designer.cs`.
+- XML/MSBuild file added with a minimal repo-wide target that only depends on standard `Build` and `Clean` targets plus `$(TargetDir)`/`$(OutputPath)`.
 - Full solution build could not be executed in this environment because `dotnet`, `msbuild`, and `xbuild` are unavailable.
 
 ## Risks / Edge Cases
-- The direct-install branch assumes the DLL in `Constants.DkimSignerPath` is the intended install target; if that directory contains stale binaries, the transport agent will be registered against those files.
-- Transport-service restart is triggered asynchronously through the existing service helper, so immediate UI status may lag briefly behind the registration call.
+- The mirror target copies from `$(TargetDir)` only, so if a future build process emits required packaging files outside the standard output directory they will not appear in `Resources/build` until explicitly included.
+- Both projects now copy into the same flat folder, so duplicate filenames will be overwritten by whichever project builds last.
+- `Clean` removes the entire mirrored `Resources/build` folder; if only one project is cleaned, the other mirrored files are removed too.
 
 ## Handoff To TestEngineer
-- Verify these UI scenarios:
-  1. DLL already exists in the install directory but Exchange transport agent is not registered.
-  2. DLL does not exist locally and the ZIP installer fallback still opens.
-  3. Installer Browse and Install buttons keep the dialog open while status/progress updates render.
-  4. Successful local registration while Exchange transport service is running.
-  5. Failure path when registration lacks admin rights or Exchange PowerShell fails.
+- Verify these build scenarios:
+  1. `Build Solution` creates `Configuration.DkimSigner.exe` directly under `Resources/build`.
+  2. `Build Solution` creates `ExchangeDkimSigner.dll` directly under `Resources/build`.
+  3. `Clean Solution` removes `Resources/build`.
+  4. Local install/packaging from `Resources/build` works without collecting files from subfolders.
 
 ## Handoff To QaEngineer
-- Confirm regression scope is limited to the Information-tab install action and installer dialog modality.
-- Review whether automatic transport-service restart is acceptable for this workflow.
-- Verify that status refresh correctly flips from "Not installed" to the detected installed version after registration.
+- Confirm regression scope is limited to build artifact mirroring.
+- Verify no change to default VS debugging/build behavior from the original `bin` folders.
+- Confirm `Resources/build` now contains the combined install payload directly at the top level.
