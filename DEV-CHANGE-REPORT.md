@@ -43,3 +43,47 @@ STANDARD
 - Confirm regression scope is limited to build artifact mirroring.
 - Verify no change to default VS debugging/build behavior from the original `bin` folders.
 - Confirm `Resources/build` now contains the combined install payload directly at the top level.
+
+---
+
+## Scope
+Upgrade vulnerable NuGet dependencies reported during compile/package vulnerability checks.
+
+## Classification
+STANDARD
+
+## Files Changed
+- Src/Exchange.DkimSigner/Exchange.DkimSigner.csproj
+- Src/Configuration.DkimSigner/Configuration.DkimSigner.csproj
+
+## What Changed
+1. Updated `MimeKit` from `4.3.0` to `4.15.1` in both projects.
+2. Added an explicit `PackageReference` to `BouncyCastle.Cryptography` version `2.6.2` in both projects to satisfy MimeKit's transitive minimum and force a non-vulnerable resolution.
+
+## Why This Fixes The Issue
+- Advisory `GHSA-gmc6-fwg3-75m5` requires MimeKit >= `4.7.1`.
+- Advisory `GHSA-g7hc-96xr-gvvx` requires MimeKit >= `4.15.1`.
+- Advisories `GHSA-v435-xc8x-wvr9`, `GHSA-m44j-cfrm-g8qc`, and `GHSA-8xfc-gm6g-vgpv` require BouncyCastle.Cryptography >= `2.3.1`; `2.6.2` is pinned to also satisfy MimeKit `4.15.1` transitive dependency constraints.
+- Pinning these minimum safe versions should clear the listed vulnerability warnings while keeping the change set minimal.
+
+## Public Contract Impact
+- No intended public API or behavioral contract change.
+- Dependency graph changes only.
+
+## Validation
+- Verified both edited `.csproj` files have no editor diagnostics.
+- Local package restore/build verification could not be executed in this environment because `dotnet` is not installed.
+
+## Risks / Edge Cases
+- MimeKit `4.15.1` is a significant jump from `4.3.0`; minor runtime behavior differences are possible and should be validated in CI/build host.
+- If external tooling pins older transitive versions via lock files outside this repo, those environments may still need lock refresh.
+
+## Handoff To TestEngineer
+- Validate `restore` and `build` on an environment with .NET SDK.
+- Run vulnerability scan (`dotnet list package --vulnerable --include-transitive`) and confirm the five reported advisories are resolved.
+- Smoke test signing flow for DKIM and key import paths using existing manual test assets under `Resources/Tests`.
+
+## Handoff To QaEngineer
+- Confirm remediation scope is limited to dependency version updates in project metadata.
+- Confirm release notes mention dependency-security uplift.
+- Confirm no packaging/install regressions from updated transitive closure.

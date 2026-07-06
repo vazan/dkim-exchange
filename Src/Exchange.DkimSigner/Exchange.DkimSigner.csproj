@@ -62,7 +62,10 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="MimeKit">
-      <Version>4.3.0</Version>
+      <Version>4.15.1</Version>
+    </PackageReference>
+    <PackageReference Include="BouncyCastle.Cryptography">
+      <Version>2.6.2</Version>
     </PackageReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
