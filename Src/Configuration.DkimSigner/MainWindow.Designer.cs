@@ -89,7 +89,7 @@
 			this.lbSuggestedDnsRecord = new System.Windows.Forms.Label();
 			this.txtDNSRecord = new System.Windows.Forms.RichTextBox();
 			this.btDomainCheckDNS = new System.Windows.Forms.Button();
-			this.txtDomainDNS = new System.Windows.Forms.TextBox();
+			this.txtDomainDNS = new System.Windows.Forms.RichTextBox();
 			this.btDomainSave = new System.Windows.Forms.Button();
 			this.txtDomainPrivateKeyFilename = new System.Windows.Forms.TextBox();
 			this.lbPrivateKey = new System.Windows.Forms.Label();
@@ -841,10 +841,9 @@
 			this.txtDomainDNS.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
 			this.txtDomainDNS.Location = new System.Drawing.Point(141, 304);
-			this.txtDomainDNS.Multiline = true;
 			this.txtDomainDNS.Name = "txtDomainDNS";
 			this.txtDomainDNS.ReadOnly = true;
-			this.txtDomainDNS.ScrollBars = System.Windows.Forms.ScrollBars.Vertical;
+			this.txtDomainDNS.ScrollBars = System.Windows.Forms.RichTextBoxScrollBars.Vertical;
 			this.txtDomainDNS.Size = new System.Drawing.Size(385, 122);
 			this.txtDomainDNS.TabIndex = 16;
 			// 
@@ -1234,7 +1233,7 @@
         private System.Windows.Forms.Label lbDomainName;
         private System.Windows.Forms.Button btAddDomain;
         private System.Windows.Forms.ListBox lbxDomains;
-        private System.Windows.Forms.TextBox txtDomainDNS;
+		private System.Windows.Forms.RichTextBox txtDomainDNS;
         private System.Windows.Forms.Button btDomainCheckDNS;
         private System.Windows.Forms.Label lbExistingDns;
         private System.Windows.Forms.Label lbSuggestedDnsRecord;

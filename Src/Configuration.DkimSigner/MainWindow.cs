@@ -1328,7 +1328,7 @@ namespace Configuration.DkimSigner
 			}
 
 			lblDomainDNSCheckResult.Visible = false;
-			List<string> dnsOutput = new List<string>();
+			List<KeyValuePair<string, string>> dnsOutput = new List<KeyValuePair<string, string>>();
 			List<string> errors = new List<string>();
 			int matches = 0;
 
@@ -1368,7 +1368,7 @@ namespace Configuration.DkimSigner
 					oResponse = oResolver.Query(domainToCheck, QType.TXT, QClass.IN);
 					if (oResponse.RecordsTXT.GetLength(0) == 0)
 					{
-						dnsOutput.Add("No record found for " + domainToCheck);
+						dnsOutput.Add(new KeyValuePair<string, string>(domainToCheck, "No record found"));
 						errors.Add("No DNS TXT record found for " + domainToCheck + ".");
 						continue;
 					}
@@ -1399,7 +1399,7 @@ namespace Configuration.DkimSigner
 						dnsRecordText = firstRecord.TXT.Count > 0 ? string.Join(string.Empty, firstRecord.TXT) : string.Empty;
 					}
 
-					dnsOutput.Add(domainToCheck + ": " + dnsRecordText);
+					dnsOutput.Add(new KeyValuePair<string, string>(domainToCheck, dnsRecordText));
 
 					string expectedPublicKey;
 					if (!suggestedPublicKeys.TryGetValue(NormalizeDnsName(domainToCheck), out expectedPublicKey))
@@ -1424,7 +1424,16 @@ namespace Configuration.DkimSigner
 					}
 				}
 
-				txtDomainDNS.Text = string.Join(Environment.NewLine + Environment.NewLine, dnsOutput);
+				txtDomainDNS.Clear();
+				for (int i = 0; i < dnsOutput.Count; i++)
+				{
+					KeyValuePair<string, string> entry = dnsOutput[i];
+					AppendDnsRecordFormatted(txtDomainDNS, FormatDnsLookupEntry(entry.Key, entry.Value));
+					if (i < dnsOutput.Count - 1)
+					{
+						AppendColoredText(txtDomainDNS, Environment.NewLine + Environment.NewLine, Color.Black);
+					}
+				}
 
 				if (errors.Count == 0)
 				{
@@ -1516,6 +1525,12 @@ namespace Configuration.DkimSigner
 			}
 
 			return Regex.Replace(trimmed, @"\s+", string.Empty);
+		}
+
+		private static string FormatDnsLookupEntry(string dnsName, string data)
+		{
+			string formattedName = dnsName.EndsWith(".", StringComparison.Ordinal) ? dnsName : dnsName + ".";
+			return "Name: " + formattedName + "\r\nType: TXT\r\nData: " + data;
 		}
 
 		/// <summary>
