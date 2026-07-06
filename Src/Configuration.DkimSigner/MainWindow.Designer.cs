@@ -87,7 +87,7 @@
 			this.lbSuggestedDnsName = new System.Windows.Forms.Label();
 			this.lbExistingDns = new System.Windows.Forms.Label();
 			this.lbSuggestedDnsRecord = new System.Windows.Forms.Label();
-			this.txtDNSRecord = new System.Windows.Forms.TextBox();
+			this.txtDNSRecord = new System.Windows.Forms.RichTextBox();
 			this.btDomainCheckDNS = new System.Windows.Forms.Button();
 			this.txtDomainDNS = new System.Windows.Forms.TextBox();
 			this.btDomainSave = new System.Windows.Forms.Button();
@@ -731,7 +731,7 @@
 			this.cbBypasNSCache.AutoSize = true;
 			this.cbBypasNSCache.Checked = true;
 			this.cbBypasNSCache.CheckState = System.Windows.Forms.CheckState.Checked;
-			this.cbBypasNSCache.Location = new System.Drawing.Point(10, 331);
+			this.cbBypasNSCache.Location = new System.Drawing.Point(10, 345);
 			this.cbBypasNSCache.Name = "cbBypasNSCache";
 			this.cbBypasNSCache.Size = new System.Drawing.Size(105, 17);
 			this.cbBypasNSCache.TabIndex = 21;
@@ -820,10 +820,9 @@
 			this.txtDNSRecord.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
 			this.txtDNSRecord.Location = new System.Drawing.Point(141, 125);
-			this.txtDNSRecord.Multiline = true;
 			this.txtDNSRecord.Name = "txtDNSRecord";
 			this.txtDNSRecord.ReadOnly = true;
-			this.txtDNSRecord.ScrollBars = System.Windows.Forms.ScrollBars.Vertical;
+			this.txtDNSRecord.ScrollBars = System.Windows.Forms.RichTextBoxScrollBars.Vertical;
 			this.txtDNSRecord.Size = new System.Drawing.Size(385, 122);
 			this.txtDNSRecord.TabIndex = 13;
 			// 
@@ -1239,7 +1238,7 @@
         private System.Windows.Forms.Button btDomainCheckDNS;
         private System.Windows.Forms.Label lbExistingDns;
         private System.Windows.Forms.Label lbSuggestedDnsRecord;
-        private System.Windows.Forms.TextBox txtDNSRecord;
+        private System.Windows.Forms.RichTextBox txtDNSRecord;
         private System.Windows.Forms.TextBox txtDNSName;
         private System.Windows.Forms.Label lbSuggestedDnsName;
         private System.Windows.Forms.ErrorProvider epvDomainSelector;
