@@ -1,0 +1,21 @@
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <BuildMirrorRoot>$(MSBuildThisFileDirectory)Resources\build\</BuildMirrorRoot>
+  </PropertyGroup>
+
+  <Target Name="MirrorBuildOutputToResources" AfterTargets="Build" Condition="'$(OutputPath)' != '' and '$(TargetDir)' != '' and Exists('$(TargetDir)')">
+    <MakeDir Directories="$(BuildMirrorRoot)" />
+
+    <ItemGroup>
+      <BuildMirrorFiles Include="$(TargetDir)**\*" />
+    </ItemGroup>
+
+    <Copy SourceFiles="@(BuildMirrorFiles)"
+          DestinationFiles="@(BuildMirrorFiles->'$(BuildMirrorRoot)%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="false" />
+  </Target>
+
+  <Target Name="CleanMirroredBuildOutput" AfterTargets="Clean" Condition="'$(OutputPath)' != '' and '$(BuildMirrorRoot)' != '' and Exists('$(BuildMirrorRoot)')">
+    <RemoveDir Directories="$(BuildMirrorRoot)" />
+  </Target>
+</Project>
