@@ -196,7 +196,6 @@
 			// 
 			// btInstall
 			// 
-			this.btInstall.DialogResult = System.Windows.Forms.DialogResult.OK;
 			this.btInstall.Enabled = false;
 			this.btInstall.Location = new System.Drawing.Point(417, 93);
 			this.btInstall.Name = "btInstall";
@@ -220,7 +219,6 @@
 			// 
 			// btBrowse
 			// 
-			this.btBrowse.DialogResult = System.Windows.Forms.DialogResult.OK;
 			this.btBrowse.Location = new System.Drawing.Point(417, 64);
 			this.btBrowse.Name = "btBrowse";
 			this.btBrowse.Size = new System.Drawing.Size(75, 23);

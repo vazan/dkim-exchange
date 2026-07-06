@@ -386,6 +386,59 @@ namespace Configuration.DkimSigner
 			SetUpgradeButton();
 		}
 
+		private static bool HasLocalDkimSignerAgent()
+		{
+			return File.Exists(Path.Combine(Constants.DkimSignerPath, Constants.DkimSignerAgentDll));
+		}
+
+		private static void EnsureDkimEventLogSource()
+		{
+			if (EventLog.SourceExists(Constants.DkimSignerEventlogSource))
+			{
+				RegistryKey key = Registry.LocalMachine.OpenSubKey(Constants.DkimSignerEventlogRegistry, false);
+				if (key == null || key.GetValue("EventMessageFile") == null)
+				{
+					EventLog.DeleteEventSource(Constants.DkimSignerEventlogSource);
+
+					EventSourceCreationData sourceData = new EventSourceCreationData(Constants.DkimSignerEventlogSource, "Application");
+					sourceData.MessageResourceFile = @"C:\Windows\Microsoft.NET\Framework\v4.0.30319\EventLogMessages.dll";
+					EventLog.CreateEventSource(sourceData);
+				}
+			}
+			else
+			{
+				EventSourceCreationData sourceData = new EventSourceCreationData(Constants.DkimSignerEventlogSource, "Application");
+				sourceData.MessageResourceFile = @"C:\Windows\Microsoft.NET\Framework\v4.0.30319\EventLogMessages.dll";
+				EventLog.CreateEventSource(sourceData);
+			}
+		}
+
+		private void InstallLocalDkimTransportAgent()
+		{
+			try
+			{
+				UseWaitCursor = true;
+				EnsureDkimEventLogSource();
+				ExchangeServer.InstallDkimTransportAgent();
+
+				if (transportService != null && txtExchangeStatus.Text == "Running")
+				{
+					transportService.Do(TransportServiceAction.Restart, msg => ShowMessageBox("Service error", msg, MessageBoxButtons.OK, MessageBoxIcon.Error));
+				}
+
+				ShowMessageBox("Transport agent installed", "Exchange DkimSigner has been registered as a transport agent.", MessageBoxButtons.OK, MessageBoxIcon.Information);
+			}
+			catch (Exception ex)
+			{
+				ShowMessageBox("Error installing agent", "Could not install Exchange DkimSigner as a transport agent:\n" + ex.Message, MessageBoxButtons.OK, MessageBoxIcon.Error);
+			}
+			finally
+			{
+				UseWaitCursor = false;
+				CheckDkimSignerInstalled();
+			}
+		}
+
 		/// <summary>
 		/// Asks the user if he wants to save the current config and saves it.
 		/// </summary>
@@ -903,6 +956,12 @@ namespace Configuration.DkimSigner
 
 		private void btUpgrade_Click(object sender, EventArgs e)
 		{
+			if (HasLocalDkimSignerAgent())
+			{
+				InstallLocalDkimTransportAgent();
+				return;
+			}
+
 			InstallWindow installWindow = new InstallWindow();
 			installWindow.ShowDialog(this);
 			installWindow.Dispose();

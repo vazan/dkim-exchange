@@ -1,50 +1,51 @@
 # DEV CHANGE REPORT
 
 ## Scope
-Fix false-negative DNS public key validation in domain settings and ensure validation covers all selectors shown in suggested DNS output.
+Fix the Information tab install flow so it no longer drops into a broken ZIP installer path when the local DKIM signer DLL already exists, and prevent the installer form from closing itself while its progress UI is running.
 
 ## Classification
 STANDARD
 
 ## Files Changed
 - Src/Configuration.DkimSigner/MainWindow.cs
+- Src/Configuration.DkimSigner/InstallWindow.Designer.cs
 
 ## What Changed
-1. Reworked `btDomainCheckDNS_Click` to validate all DKIM selector names present in suggested DNS records (`Name:` entries), instead of validating only the selector from the selector textbox.
-2. Replaced fragile regex-on-whole-text comparison with per-record extraction:
-   - Parse expected key per DNS name from suggested `Data:` lines.
-   - Query TXT records per DNS name.
-   - Extract `p=` tag value from the matching DNS TXT record.
-   - Canonicalize values before comparison (trim quotes/whitespace).
-3. Improved output behavior:
-   - `Existing DNS` now shows one block per checked selector/domain name.
-   - Status label reports all-match vs specific per-selector mismatches.
+1. Updated the Information tab `btUpgrade_Click` handler to detect an already-present local `ExchangeDkimSigner.dll` in the installed application directory.
+2. In that local-binary state, the button now:
+   - ensures the DKIM event log source exists,
+   - calls `ExchangeServer.InstallDkimTransportAgent()`,
+   - restarts the Exchange transport service when it is currently running,
+   - refreshes installed-status UI afterward.
+3. Kept the existing `InstallWindow` ZIP flow as the fallback when the local DLL is not present.
+4. Removed incorrect `DialogResult.OK` assignments from the installer form's Browse and Install buttons so the modal window no longer self-closes or corrupts its own progress workflow.
 
 ## Why This Fixes The Issue
-- Previous logic could select the wrong expected `p=` value when suggested text contained multiple records, causing a mismatch even when DNS was correct.
-- New logic compares each queried name against the corresponding expected key, eliminating cross-selector comparison errors.
-- Validation now includes both selectors when both are present in suggested DNS entries.
+- The Information tab previously always opened the ZIP installer, even when the only missing step was Exchange transport-agent registration for a DLL already on disk.
+- The installer form also had modal-button wiring that conflicted with its in-place progress UI, which matches the broken-window behavior reported.
+- The new behavior uses the existing Exchange registration API for the local-DLL scenario and leaves ZIP installation only for actual package installs.
 
 ## Public Contract Impact
-- No changes to persisted config schema or public contracts (`DomainElement`, `Settings`).
+- No persisted config schema changes.
+- No public API or transport-agent contract changes; this only changes UI routing and installer dialog behavior.
 
 ## Validation
-- Local file diagnostics: no errors in `MainWindow.cs`.
+- Local file diagnostics: no errors in `MainWindow.cs` or `InstallWindow.Designer.cs`.
 - Full solution build could not be executed in this environment because `dotnet`, `msbuild`, and `xbuild` are unavailable.
 
 ## Risks / Edge Cases
-- If suggested DNS text does not include parsable `Name:` + `Data:` records, the check falls back to the current selector domain only.
-- DNS servers returning multiple unrelated TXT records are handled by selecting the first record containing a parsable `p=` tag.
+- The direct-install branch assumes the DLL in `Constants.DkimSignerPath` is the intended install target; if that directory contains stale binaries, the transport agent will be registered against those files.
+- Transport-service restart is triggered asynchronously through the existing service helper, so immediate UI status may lag briefly behind the registration call.
 
 ## Handoff To TestEngineer
-- Verify these scenarios in UI:
-  1. Dual selector setup: both RSA and Ed25519 records present and correct.
-  2. Only one selector present in DNS.
-  3. DNS TXT record present but missing `p=`.
-  4. Quoted/chunked TXT responses with whitespace around tags.
-  5. Mixed resolver options (Local/Google/Cloudflare) and Direct NS check toggle.
+- Verify these UI scenarios:
+  1. DLL already exists in the install directory but Exchange transport agent is not registered.
+  2. DLL does not exist locally and the ZIP installer fallback still opens.
+  3. Installer Browse and Install buttons keep the dialog open while status/progress updates render.
+  4. Successful local registration while Exchange transport service is running.
+  5. Failure path when registration lacks admin rights or Exchange PowerShell fails.
 
 ## Handoff To QaEngineer
-- Confirm regression scope is limited to DNS validation display/comparison in domain settings.
-- Review UI messaging for multi-selector mismatch readability.
-- Ensure no behavior change in save/load domain settings and signer runtime behavior.
+- Confirm regression scope is limited to the Information-tab install action and installer dialog modality.
+- Review whether automatic transport-service restart is acceptable for this workflow.
+- Verify that status refresh correctly flips from "Not installed" to the detected installed version after registration.
