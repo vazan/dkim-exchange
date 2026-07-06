@@ -519,7 +519,7 @@ namespace Configuration.DkimSigner
 		private void UpdateSuggestedDns(string publicKeyBase64 = "", string keyType = null)
 		{
 			string domainName = txtDomainName.Text.Trim();
-			List<string> records = new List<string>();
+			txtDNSRecord.Clear();
 
 			if (!string.IsNullOrWhiteSpace(publicKeyBase64))
 			{
@@ -527,7 +527,8 @@ namespace Configuration.DkimSigner
 				string selector = string.Equals(resolvedKeyType, "ed25519", StringComparison.OrdinalIgnoreCase)
 					? ForcedEd25519Selector
 					: ForcedRsaSelector;
-				records.Add(FormatDnsEntry(selector, domainName, resolvedKeyType, publicKeyBase64));
+				string record = FormatDnsEntry(selector, domainName, resolvedKeyType, publicKeyBase64);
+				AppendColoredText(txtDNSRecord, record, Color.Black);
 				txtDNSName.Text = selector + "._domainkey." + domainName + ".";
 			}
 			else if (!string.IsNullOrWhiteSpace(domainName))
@@ -541,15 +542,32 @@ namespace Configuration.DkimSigner
 				if (rsaRecord != null || ed25519Record != null)
 				{
 					txtDNSName.Text = ForcedRsaSelector + "._domainkey." + domainName + ". and " + ForcedEd25519Selector + "._domainkey." + domainName + ".";
-					records.Add("Add BOTH DNS records below:");
-					records.Add("");
+					
+					AppendColoredText(txtDNSRecord, "Add BOTH DNS records below:\r\n\r\n", Color.DarkSlateGray);
 
-					records.Add("[1] RSA-SHA256");
-					records.Add(rsaRecord ?? rsaIssue);
-					records.Add("");
+					// [1] RSA-SHA256
+					AppendColoredText(txtDNSRecord, "[1] RSA-SHA256\r\n", Color.DarkBlue);
+					if (rsaRecord != null)
+					{
+						AppendDnsRecordFormatted(txtDNSRecord, rsaRecord);
+					}
+					else
+					{
+						AppendColoredText(txtDNSRecord, rsaIssue + "\r\n", Color.Firebrick);
+					}
 
-					records.Add("[2] Ed25519-SHA256");
-					records.Add(ed25519Record ?? ed25519Issue);
+					AppendColoredText(txtDNSRecord, "\r\n", Color.Black);
+
+					// [2] Ed25519-SHA256
+					AppendColoredText(txtDNSRecord, "[2] Ed25519-SHA256\r\n", Color.DarkBlue);
+					if (ed25519Record != null)
+					{
+						AppendDnsRecordFormatted(txtDNSRecord, ed25519Record);
+					}
+					else
+					{
+						AppendColoredText(txtDNSRecord, ed25519Issue + "\r\n", Color.Firebrick);
+					}
 				}
 				else if (!string.IsNullOrWhiteSpace(txtDomainPrivateKeyFilename.Text))
 				{
@@ -558,20 +576,59 @@ namespace Configuration.DkimSigner
 					string fallbackRecord = BuildSuggestedDnsRecord(ResolvePublicKeyPath(txtDomainPrivateKeyFilename.Text), domainName, txtDomainSelector.Text, null, out fallbackIssue);
 					if (fallbackRecord != null)
 					{
-						records.Add(fallbackRecord);
+						AppendDnsRecordFormatted(txtDNSRecord, fallbackRecord);
 						txtDNSName.Text = txtDomainSelector.Text + "._domainkey." + domainName + ".";
 					}
 					else if (!string.IsNullOrWhiteSpace(fallbackIssue))
 					{
-						records.Add(fallbackIssue);
+						AppendColoredText(txtDNSRecord, fallbackIssue, Color.Firebrick);
 					}
 				}
+				else
+				{
+					AppendColoredText(txtDNSRecord, "No key found. Generate/select keys first.", Color.Firebrick);
+				}
+			}
+			else
+			{
+				AppendColoredText(txtDNSRecord, "No key found. Generate/select keys first.", Color.Firebrick);
 			}
 
-			txtDNSRecord.Text = records.Count > 0
-				? string.Join("\r\n", records)
-				: "No key found. Generate/select keys first.";
 			lblDomainDNSCheckResult.Visible = false;
+		}
+
+		private void AppendColoredText(RichTextBox rtb, string text, Color color)
+		{
+			rtb.SelectionColor = color;
+			rtb.AppendText(text);
+			rtb.SelectionColor = Color.Black;
+		}
+
+		private void AppendDnsRecordFormatted(RichTextBox rtb, string record)
+		{
+			string[] lines = record.Split(new[] { "\r\n" }, StringSplitOptions.None);
+			foreach (string line in lines)
+			{
+				if (line.StartsWith("Name:"))
+				{
+					AppendColoredText(rtb, "Name: ", Color.DarkGreen);
+					AppendColoredText(rtb, line.Substring(6).Trim() + "\r\n", Color.Black);
+				}
+				else if (line.StartsWith("Type:"))
+				{
+					AppendColoredText(rtb, "Type: ", Color.DarkGreen);
+					AppendColoredText(rtb, line.Substring(5).Trim() + "\r\n", Color.Black);
+				}
+				else if (line.StartsWith("Data:"))
+				{
+					AppendColoredText(rtb, "Data: ", Color.DarkGreen);
+					AppendColoredText(rtb, line.Substring(5).Trim() + "\r\n", Color.Black);
+				}
+				else if (!string.IsNullOrEmpty(line))
+				{
+					AppendColoredText(rtb, line + "\r\n", Color.Black);
+				}
+			}
 		}
 
 		private string GetDomainKeysDirectory()
@@ -655,7 +712,7 @@ namespace Configuration.DkimSigner
 
 		private static string FormatDnsEntry(string selector, string domainName, string keyType, string publicKeyBase64)
 		{
-			return "Name: " + selector + "._domainkey." + domainName + ".\r\nTXT: v=DKIM1; k=" + keyType + "; p=" + publicKeyBase64;
+			return "Name: " + selector + "._domainkey." + domainName + ".\r\nType: TXT\r\nData: v=DKIM1; k=" + keyType + "; p=" + publicKeyBase64;
 		}
 
 		/// <summary>
