@@ -12,6 +12,7 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.Linq;
+using Microsoft.Win32;
 using Configuration.DkimSigner.Exchange;
 using Configuration.DkimSigner.GitHub;
 using Exchange.DkimSigner.Configuration;
@@ -651,36 +652,43 @@ namespace Configuration.DkimSigner
 			lblDomainDNSCheckResult.Visible = false;
 		}
 
-		private void AppendColoredText(RichTextBox rtb, string text, Color color)
+		private void AppendColoredText(TextBoxBase textBox, string text, Color color)
 		{
-			rtb.SelectionColor = color;
-			rtb.AppendText(text);
-			rtb.SelectionColor = Color.Black;
+			RichTextBox richTextBox = textBox as RichTextBox;
+			if (richTextBox != null)
+			{
+				richTextBox.SelectionColor = color;
+				richTextBox.AppendText(text);
+				richTextBox.SelectionColor = Color.Black;
+				return;
+			}
+
+			textBox.AppendText(text);
 		}
 
-		private void AppendDnsRecordFormatted(RichTextBox rtb, string record)
+		private void AppendDnsRecordFormatted(TextBoxBase textBox, string record)
 		{
 			string[] lines = record.Split(new[] { "\r\n" }, StringSplitOptions.None);
 			foreach (string line in lines)
 			{
 				if (line.StartsWith("Name:"))
 				{
-					AppendColoredText(rtb, "Name: ", Color.DarkGreen);
-					AppendColoredText(rtb, line.Substring(6).Trim() + "\r\n", Color.Black);
+					AppendColoredText(textBox, "Name: ", Color.DarkGreen);
+					AppendColoredText(textBox, line.Substring(6).Trim() + "\r\n", Color.Black);
 				}
 				else if (line.StartsWith("Type:"))
 				{
-					AppendColoredText(rtb, "Type: ", Color.DarkGreen);
-					AppendColoredText(rtb, line.Substring(5).Trim() + "\r\n", Color.Black);
+					AppendColoredText(textBox, "Type: ", Color.DarkGreen);
+					AppendColoredText(textBox, line.Substring(5).Trim() + "\r\n", Color.Black);
 				}
 				else if (line.StartsWith("Data:"))
 				{
-					AppendColoredText(rtb, "Data: ", Color.DarkGreen);
-					AppendColoredText(rtb, line.Substring(5).Trim() + "\r\n", Color.Black);
+					AppendColoredText(textBox, "Data: ", Color.DarkGreen);
+					AppendColoredText(textBox, line.Substring(5).Trim() + "\r\n", Color.Black);
 				}
 				else if (!string.IsNullOrEmpty(line))
 				{
-					AppendColoredText(rtb, line + "\r\n", Color.Black);
+					AppendColoredText(textBox, line + "\r\n", Color.Black);
 				}
 			}
 		}
