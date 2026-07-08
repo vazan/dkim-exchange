@@ -1,36 +1,95 @@
-﻿# Exchange DKIM Signer
+# Exchange DKIM Signer (Fork)
 
-## Notice 2023-05-15
+This repository is a maintained fork of the original project: [Pro/dkim-exchange](https://github.com/Pro/dkim-exchange).
 
-You may have noticed there haven't been updates for a while. I've been incredibly busy and since the last update I've migrated away from on-prem Exchange to O365 so I no longer have a personal use for the application.
+Credit for the original implementation and project foundation goes to the original authors and contributors of `Pro/dkim-exchange`.
 
-If anybody would like to pick up the baton and continue development of the project, feel free to reach out to @Pro who is the original author and the owner of this repository as I'm unable to grant anybody access.
+## What This Project Does
 
-## About
+Exchange DKIM Signer adds DomainKeys Identified Mail (DKIM) signing support to on-premises Microsoft Exchange Server transport flow.
 
-Exchange DKIM Signer adds support to Microsoft Exchange Server for applying a [DomainKeys Identified Mail](https://en.wikipedia.org/wiki/DomainKeys_Identified_Mail) signature to outgoing messages.
+It contains:
 
-DKIM is an email authentication method that can help detect forged sender addresses in email, a technique often used in phishing and email spam. It's often used along with other email authentication methods such as SPF and DMARC.
+- `Exchange.DkimSigner`: the Exchange routing/transport agent that signs outgoing messages.
+- `Configuration.DkimSigner`: the Windows Forms configuration and install/upgrade/uninstall utility.
 
-Exchange DKIM Signer is 'clean' - it doesn't contain any advertising or send any telemetry. The configuration tool includes an online check (to GitHub) to see whether a new version is available, and has a download and install feature.
+## Upstream Origin
+
+- Original source: [https://github.com/Pro/dkim-exchange](https://github.com/Pro/dkim-exchange)
+- This fork keeps the same core goal while carrying additional maintenance and behavior changes.
+
+## Notable Fork Changes
+
+Based on the current codebase, this fork includes these notable updates:
+
+1. Dependency security updates
+- `MimeKit` upgraded to `4.15.1`.
+- `BouncyCastle.Cryptography` pinned to `2.6.2`.
+
+2. Flattened mirrored build output
+- Repository-level `Directory.Build.targets` mirrors each project build output into `Resources/build` after build.
+- `Clean` removes the mirrored `Resources/build` directory.
+- Normal per-project `bin/Debug` and `bin/Release` outputs are still preserved.
+
+3. DKIM algorithm and signing behavior updates
+- Supports `RsaSha1`, `RsaSha256`, and `Ed25519Sha256` in configuration.
+- Includes fork-specific dual-sign behavior in the signer:
+  - Looks for per-domain key files named `<domain>.rsa.pem` and `<domain>.ed25519.pem` next to the configured key path.
+  - If present and valid, both signatures are applied with forced selectors:
+    - RSA selector: `2026051800`
+    - Ed25519 selector: `2026051801`
+
+4. Runtime configuration reload
+- The transport agent watches `settings.xml` and reloads settings on change.
 
 ## Requirements
 
-Exchange DKIM Signer is compatible with the following versions of Microsoft Exchange Server:
-* Exchange Server 2019 (RTM version and later)
-* Exchange Server 2016 (CU13 and later)
-* Exchange Server 2013 (CU23 and later)
+- Windows environment with Microsoft Exchange Server (on-prem) where transport agents are supported.
+- .NET Framework target in this solution: `v4.8`.
+- Visual Studio/MSBuild toolchain capable of building legacy .NET Framework projects.
 
-If you require support for earlier versions of Exchange, use [Exchange DKIM Signer 3.3.4](https://github.com/Pro/dkim-exchange/releases/tag/v3.3.4).
+Compatibility guidance from upstream (verify in your environment):
 
-Currently, Windows Server Core is not recommended when used with Exchange Server 2019 as Exchange DKIM Signer uses a GUI configuration tool.
+- Exchange Server 2019
+- Exchange Server 2016 (CU13+)
+- Exchange Server 2013 (CU23+)
 
-## DKIM Signing Agent for Microsoft Exchange Server
+## Build
 
-The Agent signs outgoing emails from your Exchange server according to the DKIM specifications. It uses the DKIM signing implementation from the [MimeKit](http://www.mimekit.net/) project.
+1. Open `DkimSigner.sln` in Visual Studio.
+2. Build `Debug` or `Release`.
+3. Collect artifacts from either:
+- Project-local output folders under each project `bin/...`.
+- Unified mirrored output folder: `Resources/build`.
 
-We recommend to set up SPF (http://www.open-spf.org/) and DMARC (https://dmarc.org/) too. Test your email configuration by using a service such as [DKIM Test](https://www.appmaildev.com/en/dkim).
+## Project Layout
 
-## Documentation
+- `Src/Exchange.DkimSigner`: transport agent library (`ExchangeDkimSigner.dll`).
+- `Src/Configuration.DkimSigner`: installer/configuration GUI (`Configuration.DkimSigner.exe`).
+- `Resources/Tests`: local test assets and example key material for development/testing.
+- `Directory.Build.targets`: shared output mirroring behavior.
 
-Full documentation is available in the [Wiki](https://github.com/Pro/dkim-exchange/wiki).
+## Configuration Notes
+
+- Runtime settings are stored in `settings.xml` near the deployed agent assembly.
+- Domain entries, selectors, headers to sign, canonicalization, and algorithm are controlled through settings and/or the configuration utility.
+- The signer always ensures `From` is part of signed headers.
+
+## Install/Operations Notes
+
+- The configuration utility includes install, inplace upgrade, and uninstall modes.
+- Command-line entry flags include:
+  - `--install`
+  - `--upgrade-inplace`
+  - `--uninstall`
+  - `--debug` (for debugging workflows)
+
+## License
+
+This repository includes `LICENSE` (LGPL v3 with exception) and preserves upstream licensing terms.
+
+## Attribution
+
+If you are looking for original documentation/wiki history, start with the upstream repository:
+
+- [https://github.com/Pro/dkim-exchange](https://github.com/Pro/dkim-exchange)
