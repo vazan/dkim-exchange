@@ -55,6 +55,20 @@ This table tracks fork-specific changes relative to the original upstream reposi
 
 When introducing new fork-only behavior, add a new row with date, scope, and impact.
 
+## Release Notes (Fork)
+
+### Unreleased
+
+- Maintained as a fork of `Pro/dkim-exchange` with explicit upstream attribution.
+- Added upstream-difference tracking table in this README.
+
+### 2026-07-08
+
+- Security: upgraded `MimeKit` to `4.15.1` and pinned `BouncyCastle.Cryptography` to `2.6.2`.
+- Build: mirrored project outputs to `Resources/build` through repository-level MSBuild targets.
+- Signing: supports fork dual-sign behavior using `<domain>.rsa.pem` and `<domain>.ed25519.pem` when present.
+- Operations: runtime reload of `settings.xml` remains active in the transport-agent factory watcher.
+
 ## Requirements
 
 - Windows environment with Microsoft Exchange Server (on-prem) where transport agents are supported.
