@@ -42,6 +42,19 @@ Based on the current codebase, this fork includes these notable updates:
 4. Runtime configuration reload
 - The transport agent watches `settings.xml` and reloads settings on change.
 
+## Differences vs Upstream (Tracking)
+
+This table tracks fork-specific changes relative to the original upstream repository.
+
+| Date (UTC) | Area | Fork Change | Why It Matters |
+|---|---|---|---|
+| 2026-07-08 | Dependency security | Upgraded `MimeKit` to `4.15.1` and pinned `BouncyCastle.Cryptography` to `2.6.2`. | Addresses known dependency vulnerabilities and keeps signing stack current. |
+| 2026-07-08 | Build artifacts | Added repository-level output mirroring to `Resources/build` via `Directory.Build.targets`, with cleanup on `Clean`. | Produces a single flattened folder suitable for packaging and install workflows. |
+| 2026-07-08 | DKIM behavior | Added dual-sign key discovery (`<domain>.rsa.pem` and `<domain>.ed25519.pem`) with forced selectors (`2026051800`, `2026051801`) when keys are available. | Enables concurrent RSA + Ed25519 signatures for staged adoption and DNS migration patterns. |
+| 2026-07-08 | Runtime ops | Retains settings hot-reload from `settings.xml` using file watching in the transport agent factory. | Reduces operational friction by applying config updates without code redeploy. |
+
+When introducing new fork-only behavior, add a new row with date, scope, and impact.
+
 ## Requirements
 
 - Windows environment with Microsoft Exchange Server (on-prem) where transport agents are supported.
