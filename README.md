@@ -84,9 +84,8 @@ When introducing new fork-only behavior, add a new row with date, scope, and imp
 
 Compatibility guidance from upstream (verify in your environment):
 
+- Exchange Server SE
 - Exchange Server 2019
-- Exchange Server 2016 (CU13+)
-- Exchange Server 2013 (CU23+)
 
 ## Build
 
