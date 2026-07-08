@@ -4,6 +4,13 @@ This repository is a maintained fork of the original project: [Pro/dkim-exchange
 
 Credit for the original implementation and project foundation goes to the original authors and contributors of `Pro/dkim-exchange`.
 
+## About
+Exchange DKIM Signer adds support to Microsoft Exchange Server for applying a DomainKeys Identified Mail signature to outgoing messages.
+
+DKIM is an email authentication method that can help detect forged sender addresses in email, a technique often used in phishing and email spam. It's often used along with other email authentication methods such as SPF and DMARC.
+
+Exchange DKIM Signer is 'clean' - it doesn't contain any advertising or send any telemetry. The configuration tool includes an online check (to GitHub) to see whether a new version is available, and has a download and install feature.
+
 ## What This Project Does
 
 Exchange DKIM Signer adds DomainKeys Identified Mail (DKIM) signing support to on-premises Microsoft Exchange Server transport flow.
