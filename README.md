@@ -22,16 +22,16 @@ It contains:
 
 Based on the current codebase, this fork includes these notable updates:
 
-1. Dependency security updates
+### 1. Dependency security updates
 - `MimeKit` upgraded to `4.15.1`.
 - `BouncyCastle.Cryptography` pinned to `2.6.2`.
 
-2. Flattened mirrored build output
+### 2. Flattened mirrored build output
 - Repository-level `Directory.Build.targets` mirrors each project build output into `Resources/build` after build.
 - `Clean` removes the mirrored `Resources/build` directory.
 - Normal per-project `bin/Debug` and `bin/Release` outputs are still preserved.
 
-3. DKIM algorithm and signing behavior updates
+### 3. DKIM algorithm and signing behavior updates
 - Supports `RsaSha1`, `RsaSha256`, and `Ed25519Sha256` in configuration.
 - Includes fork-specific dual-sign behavior in the signer:
   - Looks for per-domain key files named `<domain>.rsa.pem` and `<domain>.ed25519.pem` next to the configured key path.
@@ -39,7 +39,7 @@ Based on the current codebase, this fork includes these notable updates:
     - RSA selector: `2026051800`
     - Ed25519 selector: `2026051801`
 
-4. Runtime configuration reload
+### 4. Runtime configuration reload
 - The transport agent watches `settings.xml` and reloads settings on change.
 
 ## Differences vs Upstream (Tracking)
@@ -86,8 +86,8 @@ Compatibility guidance from upstream (verify in your environment):
 1. Open `DkimSigner.sln` in Visual Studio.
 2. Build `Debug` or `Release`.
 3. Collect artifacts from either:
-- Project-local output folders under each project `bin/...`.
-- Unified mirrored output folder: `Resources/build`.
+  - Project-local output folders under each project `bin/...`.
+  - Unified mirrored output folder: `Resources/build`.
 
 ## Project Layout
 
@@ -105,11 +105,7 @@ Compatibility guidance from upstream (verify in your environment):
 ## Install/Operations Notes
 
 - The configuration utility includes install, inplace upgrade, and uninstall modes.
-- Command-line entry flags include:
-  - `--install`
-  - `--upgrade-inplace`
-  - `--uninstall`
-  - `--debug` (for debugging workflows)
+- Command-line entry flags: `--install`, `--upgrade-inplace`, `--uninstall`, `--debug`.
 
 ## License
 
