@@ -1893,12 +1893,30 @@ namespace Configuration.DkimSigner
 			string csvPath;
 			using (OpenFileDialog openFileDialog = new OpenFileDialog())
 			{
+				DialogResult result;
 				openFileDialog.Filter = "CSV files|*.csv|All files|*.*";
 				openFileDialog.Title = "Select servers CSV file";
 				openFileDialog.CheckFileExists = true;
 				openFileDialog.Multiselect = false;
 
-				if (openFileDialog.ShowDialog(this) != DialogResult.OK)
+				try
+				{
+					result = openFileDialog.ShowDialog(this);
+				}
+				catch (COMException) when (openFileDialog.AutoUpgradeEnabled)
+				{
+					openFileDialog.AutoUpgradeEnabled = false;
+					try
+					{
+						result = openFileDialog.ShowDialog(this);
+					}
+					finally
+					{
+						openFileDialog.AutoUpgradeEnabled = true;
+					}
+				}
+
+				if (result != DialogResult.OK)
 				{
 					return;
 				}
