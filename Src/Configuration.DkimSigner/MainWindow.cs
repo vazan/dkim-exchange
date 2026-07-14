@@ -31,14 +31,20 @@ namespace Configuration.DkimSigner
 {
 	public partial class MainWindow : Form
 	{
-		private const string ForcedRsaSelector = "2026051800";
-		private const string ForcedEd25519Selector = "2026051801";
+		private static string ForcedRsaSelector => DateTime.Now.ToString("yyyyMMdd") + "00";
+		private static string ForcedEd25519Selector => DateTime.Now.ToString("yyyyMMdd") + "01";
 
 		// ##########################################################
 		// ##################### Variables ##########################
 		// ##########################################################
 
 		private delegate DialogResult ShowMessageBoxCallback(string title, string message, MessageBoxButtons buttons, MessageBoxIcon icon);
+
+		private sealed class ServerDeployTarget
+		{
+			public string Host { get; set; }
+			public string Path { get; set; }
+		}
 
 		private Settings oConfig;
 		private Version dkimSignerInstalled;
@@ -1600,6 +1606,217 @@ namespace Configuration.DkimSigner
 			return "Name: " + formattedName + "\r\nType: TXT\r\nData: " + data;
 		}
 
+		private static bool TryParseServerCsvLine(string line, out List<string> fields)
+		{
+			fields = new List<string>();
+			if (line == null)
+			{
+				return false;
+			}
+
+			StringBuilder currentField = new StringBuilder();
+			bool inQuotes = false;
+
+			for (int i = 0; i < line.Length; i++)
+			{
+				char c = line[i];
+
+				if (c == '"')
+				{
+					if (inQuotes && i + 1 < line.Length && line[i + 1] == '"')
+					{
+						currentField.Append('"');
+						i++;
+					}
+					else
+					{
+						inQuotes = !inQuotes;
+					}
+				}
+				else if (c == ',' && !inQuotes)
+				{
+					fields.Add(currentField.ToString().Trim());
+					currentField.Clear();
+				}
+				else
+				{
+					currentField.Append(c);
+				}
+			}
+
+			if (inQuotes)
+			{
+				return false;
+			}
+
+			fields.Add(currentField.ToString().Trim());
+			return true;
+		}
+
+		private static bool TryLoadServerTargets(string csvPath, out List<ServerDeployTarget> targets, out string error)
+		{
+			targets = new List<ServerDeployTarget>();
+			error = null;
+
+			string[] lines;
+			try
+			{
+				lines = File.ReadAllLines(csvPath);
+			}
+			catch (Exception ex)
+			{
+				error = "Could not read CSV file: " + ex.Message;
+				return false;
+			}
+
+			HashSet<string> uniqueTargets = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+			for (int i = 0; i < lines.Length; i++)
+			{
+				string rawLine = lines[i];
+				if (string.IsNullOrWhiteSpace(rawLine))
+				{
+					continue;
+				}
+
+				List<string> fields;
+				if (!TryParseServerCsvLine(rawLine, out fields))
+				{
+					error = "Invalid CSV format at line " + (i + 1) + ".";
+					return false;
+				}
+
+				if (fields.Count < 2)
+				{
+					error = "Missing Host/Path columns at line " + (i + 1) + ".";
+					return false;
+				}
+
+				string host = fields[0].Trim();
+				string path = fields[1].Trim();
+
+				if (i == 0 && string.Equals(host, "Host", StringComparison.OrdinalIgnoreCase) && string.Equals(path, "Path", StringComparison.OrdinalIgnoreCase))
+				{
+					continue;
+				}
+
+				if (string.IsNullOrWhiteSpace(host) || string.IsNullOrWhiteSpace(path))
+				{
+					error = "Host or Path is empty at line " + (i + 1) + ".";
+					return false;
+				}
+
+				string dedupeKey = host + "|" + path;
+				if (uniqueTargets.Add(dedupeKey))
+				{
+					targets.Add(new ServerDeployTarget { Host = host, Path = path });
+				}
+			}
+
+			if (targets.Count == 0)
+			{
+				error = "No deployment target found in CSV file.";
+				return false;
+			}
+
+			return true;
+		}
+
+		private static string BuildRemoteDestinationRoot(string host, string destinationPath)
+		{
+			if (string.IsNullOrWhiteSpace(destinationPath))
+			{
+				throw new ArgumentException("Destination path is empty.");
+			}
+
+			if (destinationPath.StartsWith(@"\\", StringComparison.Ordinal))
+			{
+				return destinationPath.TrimEnd('\\');
+			}
+
+			if (destinationPath.Length < 3 || destinationPath[1] != ':' || (destinationPath[2] != '\\' && destinationPath[2] != '/'))
+			{
+				throw new ArgumentException("Path must be a local absolute path, for example C:\\Program Files\\Exchange DkimSigner.");
+			}
+
+			char driveLetter = char.ToUpperInvariant(destinationPath[0]);
+			string relativePath = destinationPath.Substring(2).Replace('/', '\\').TrimEnd('\\');
+			return @"\\" + host + @"\" + driveLetter + "$" + relativePath;
+		}
+
+		private static void CopyDirectoryContents(string sourceDirectory, string destinationDirectory)
+		{
+			if (!Directory.Exists(sourceDirectory))
+			{
+				return;
+			}
+
+			foreach (string sourceFile in Directory.GetFiles(sourceDirectory, "*", SearchOption.AllDirectories))
+			{
+				string relativePath = sourceFile.Substring(sourceDirectory.Length).TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+				string destinationFile = Path.Combine(destinationDirectory, relativePath);
+				string destinationFolder = Path.GetDirectoryName(destinationFile);
+
+				if (!string.IsNullOrWhiteSpace(destinationFolder))
+				{
+					Directory.CreateDirectory(destinationFolder);
+				}
+
+				File.Copy(sourceFile, destinationFile, true);
+			}
+		}
+
+		private static bool IsLocalServerName(string host)
+		{
+			if (string.IsNullOrWhiteSpace(host))
+			{
+				return false;
+			}
+
+			string normalizedHost = host.Trim().TrimStart('\\').TrimEnd('.');
+			if (string.Equals(normalizedHost, ".", StringComparison.OrdinalIgnoreCase) ||
+				string.Equals(normalizedHost, "localhost", StringComparison.OrdinalIgnoreCase) ||
+				string.Equals(normalizedHost, "127.0.0.1", StringComparison.OrdinalIgnoreCase) ||
+				string.Equals(normalizedHost, "::1", StringComparison.OrdinalIgnoreCase))
+			{
+				return true;
+			}
+
+			string machineName = Environment.MachineName;
+			if (string.Equals(normalizedHost, machineName, StringComparison.OrdinalIgnoreCase))
+			{
+				return true;
+			}
+
+			try
+			{
+				string fqdn = Dns.GetHostEntry(machineName).HostName;
+				if (!string.IsNullOrWhiteSpace(fqdn))
+				{
+					if (string.Equals(normalizedHost, fqdn, StringComparison.OrdinalIgnoreCase))
+					{
+						return true;
+					}
+
+					int firstDot = fqdn.IndexOf('.');
+					if (firstDot > 0)
+					{
+						string shortFqdn = fqdn.Substring(0, firstDot);
+						if (string.Equals(normalizedHost, shortFqdn, StringComparison.OrdinalIgnoreCase))
+						{
+							return true;
+						}
+					}
+				}
+			}
+			catch
+			{
+				// Ignore DNS lookup failures and keep non-DNS checks above.
+			}
+
+			return false;
+		}
+
 		/// <summary>
 		/// Button "save" in domain configuration have been click
 		/// </summary>
@@ -1649,6 +1866,99 @@ namespace Configuration.DkimSigner
 			{
 				ShowMessageBox("Config error", "You first need to fix the errors in your domain configuration before saving.", MessageBoxButtons.OK, MessageBoxIcon.Error);
 			}
+		}
+
+		private void btDeployServersCsv_Click(object sender, EventArgs e)
+		{
+			if (!CheckSaveConfig())
+			{
+				return;
+			}
+
+			string localSettingsPath = Path.Combine(Constants.DkimSignerPath, "settings.xml");
+			string localKeysPath = Path.Combine(Constants.DkimSignerPath, "keys");
+
+			if (!File.Exists(localSettingsPath))
+			{
+				ShowMessageBox("Deployment error", "The local settings.xml file was not found:\n" + localSettingsPath, MessageBoxButtons.OK, MessageBoxIcon.Error);
+				return;
+			}
+
+			if (!Directory.Exists(localKeysPath))
+			{
+				ShowMessageBox("Deployment error", "The local keys directory was not found:\n" + localKeysPath, MessageBoxButtons.OK, MessageBoxIcon.Error);
+				return;
+			}
+
+			string csvPath;
+			using (OpenFileDialog openFileDialog = new OpenFileDialog())
+			{
+				openFileDialog.Filter = "CSV files|*.csv|All files|*.*";
+				openFileDialog.Title = "Select servers CSV file";
+				openFileDialog.CheckFileExists = true;
+				openFileDialog.Multiselect = false;
+
+				if (openFileDialog.ShowDialog(this) != DialogResult.OK)
+				{
+					return;
+				}
+
+				csvPath = openFileDialog.FileName;
+			}
+
+			List<ServerDeployTarget> targets;
+			string loadError;
+			if (!TryLoadServerTargets(csvPath, out targets, out loadError))
+			{
+				ShowMessageBox("CSV error", loadError, MessageBoxButtons.OK, MessageBoxIcon.Error);
+				return;
+			}
+
+			int successfulDeployments = 0;
+			StringBuilder report = new StringBuilder();
+
+			try
+			{
+				UseWaitCursor = true;
+				Cursor.Current = Cursors.WaitCursor;
+
+				foreach (ServerDeployTarget target in targets)
+				{
+					if (IsLocalServerName(target.Host))
+					{
+						report.AppendLine("SKIP - " + target.Host + " -> local server");
+						continue;
+					}
+
+					try
+					{
+						string remoteRoot = BuildRemoteDestinationRoot(target.Host, target.Path);
+						string remoteSettingsPath = Path.Combine(remoteRoot, "settings.xml");
+						string remoteKeysPath = Path.Combine(remoteRoot, "keys");
+
+						Directory.CreateDirectory(remoteRoot);
+						Directory.CreateDirectory(remoteKeysPath);
+
+						File.Copy(localSettingsPath, remoteSettingsPath, true);
+						CopyDirectoryContents(localKeysPath, remoteKeysPath);
+
+						successfulDeployments++;
+						report.AppendLine("OK  - " + target.Host + " -> " + remoteRoot);
+					}
+					catch (Exception ex)
+					{
+						report.AppendLine("FAIL - " + target.Host + " -> " + ex.Message);
+					}
+				}
+			}
+			finally
+			{
+				UseWaitCursor = false;
+				Cursor.Current = Cursors.Default;
+			}
+
+			string summary = "Deployment finished. Success: " + successfulDeployments + "/" + targets.Count + ".\n\n" + report;
+			ShowMessageBox("Servers deployment", summary, MessageBoxButtons.OK, successfulDeployments == targets.Count ? MessageBoxIcon.Information : MessageBoxIcon.Warning);
 		}
 
 		/// <summary>
@@ -1871,5 +2181,5 @@ namespace Configuration.DkimSigner
 		{
 			Process.Start(linkLabelWebsite.Text);
 		}
-	}
+    }
 }
