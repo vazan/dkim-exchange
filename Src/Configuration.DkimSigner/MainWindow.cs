@@ -177,8 +177,12 @@ namespace Configuration.DkimSigner
 			{
 				DomainElement oSelected = (DomainElement)lbxDomains.SelectedItem;
 				txtDomainName.Text = oSelected.Domain;
-				txtDomainSelector.Text = oSelected.Selector;
-				txtDomainPrivateKeyFilename.Text = oSelected.PrivateKeyFile;
+				txtDomainSelector.Text = !string.IsNullOrWhiteSpace(oSelected.Selector)
+					? oSelected.Selector
+					: (!string.IsNullOrWhiteSpace(oSelected.Ed25519Selector) ? oSelected.Ed25519Selector : oSelected.RsaSelector);
+				txtDomainPrivateKeyFilename.Text = !string.IsNullOrWhiteSpace(oSelected.PrivateKeyFile)
+					? oSelected.PrivateKeyFile
+					: (!string.IsNullOrWhiteSpace(oSelected.Ed25519PrivateKeyFile) ? oSelected.Ed25519PrivateKeyFile : oSelected.RsaPrivateKeyFile);
 
 				/*if (oSelected.CryptoProvider == null)
                 {
@@ -595,14 +599,17 @@ namespace Configuration.DkimSigner
 			else if (!string.IsNullOrWhiteSpace(domainName))
 			{
 				string keyDirectory = GetDomainKeysDirectory();
+				string rsaSelector;
+				string ed25519Selector;
+				GetCurrentDualSelectors(out rsaSelector, out ed25519Selector);
 				string rsaIssue;
 				string ed25519Issue;
-				string rsaRecord = BuildSuggestedDnsRecord(Path.Combine(keyDirectory, domainName + ".rsa.pem"), domainName, ForcedRsaSelector, "rsa", out rsaIssue);
-				string ed25519Record = BuildSuggestedDnsRecord(Path.Combine(keyDirectory, domainName + ".ed25519.pem"), domainName, ForcedEd25519Selector, "ed25519", out ed25519Issue);
+				string rsaRecord = BuildSuggestedDnsRecord(Path.Combine(keyDirectory, domainName + ".rsa.pem"), domainName, rsaSelector, "rsa", out rsaIssue);
+				string ed25519Record = BuildSuggestedDnsRecord(Path.Combine(keyDirectory, domainName + ".ed25519.pem"), domainName, ed25519Selector, "ed25519", out ed25519Issue);
 
 				if (rsaRecord != null || ed25519Record != null)
 				{
-					txtDNSName.Text = ForcedRsaSelector + "._domainkey." + domainName + ". and " + ForcedEd25519Selector + "._domainkey." + domainName + ".";
+					txtDNSName.Text = rsaSelector + "._domainkey." + domainName + ". and " + ed25519Selector + "._domainkey." + domainName + ".";
 					
 					AppendColoredText(txtDNSRecord, "Add BOTH DNS records below:\r\n\r\n", Color.DarkSlateGray);
 
@@ -740,6 +747,80 @@ namespace Configuration.DkimSigner
 			}
 
 			return resolvedPath;
+		}
+
+		private static string MakeRelativeToKeysDirectory(string path)
+		{
+			if (string.IsNullOrWhiteSpace(path) || !Path.IsPathRooted(path))
+			{
+				return path;
+			}
+
+			string keysRoot = Path.GetFullPath(Path.Combine(Constants.DkimSignerPath, "keys") + Path.DirectorySeparatorChar);
+			string fullPath = Path.GetFullPath(path);
+
+			if (fullPath.StartsWith(keysRoot, StringComparison.OrdinalIgnoreCase))
+			{
+				return fullPath.Substring(keysRoot.Length);
+			}
+
+			return path;
+		}
+
+		private void GetCurrentDualSelectors(out string rsaSelector, out string ed25519Selector)
+		{
+			rsaSelector = ForcedRsaSelector;
+			ed25519Selector = ForcedEd25519Selector;
+
+			DomainElement selectedDomain = lbxDomains.SelectedItem as DomainElement;
+			if (selectedDomain != null && string.Equals(selectedDomain.Domain, txtDomainName.Text.Trim(), StringComparison.OrdinalIgnoreCase))
+			{
+				if (!string.IsNullOrWhiteSpace(selectedDomain.RsaSelector))
+				{
+					rsaSelector = selectedDomain.RsaSelector;
+				}
+
+				if (!string.IsNullOrWhiteSpace(selectedDomain.Ed25519Selector))
+				{
+					ed25519Selector = selectedDomain.Ed25519Selector;
+				}
+			}
+		}
+
+		private static string TryBuildSelectorWithSuffix(string selector, string suffix)
+		{
+			if (string.IsNullOrWhiteSpace(selector) || string.IsNullOrWhiteSpace(suffix))
+			{
+				return null;
+			}
+
+			string trimmed = selector.Trim();
+			if (!Regex.IsMatch(trimmed, @"^\d{8}(00|01)$", RegexOptions.None))
+			{
+				return null;
+			}
+
+			return trimmed.Substring(0, 8) + suffix;
+		}
+
+		private void EnsureDualSelectors(DomainElement domain)
+		{
+			string selectorText = txtDomainSelector.Text == null ? string.Empty : txtDomainSelector.Text.Trim();
+			string selectorSource = !string.IsNullOrWhiteSpace(selectorText) ? selectorText : domain.Selector;
+
+			if (string.IsNullOrWhiteSpace(domain.Ed25519Selector))
+			{
+				domain.Ed25519Selector = !string.IsNullOrWhiteSpace(selectorSource)
+					? selectorSource
+					: (TryBuildSelectorWithSuffix(domain.RsaSelector, "01") ?? ForcedEd25519Selector);
+			}
+
+			if (string.IsNullOrWhiteSpace(domain.RsaSelector))
+			{
+				domain.RsaSelector = TryBuildSelectorWithSuffix(domain.Ed25519Selector, "00")
+					?? TryBuildSelectorWithSuffix(selectorSource, "00")
+					?? ForcedRsaSelector;
+			}
 		}
 
 		private string BuildSuggestedDnsRecord(string keyPath, string domainName, string selector, string keyType, out string issue)
@@ -1202,15 +1283,7 @@ namespace Configuration.DkimSigner
 			}
 
 			txtDomainSelector.Text = ForcedEd25519Selector;
-			string keyRoot = Path.Combine(Constants.DkimSignerPath, "keys");
-			if (ed25519Path.StartsWith(keyRoot + "\\", StringComparison.OrdinalIgnoreCase))
-			{
-				txtDomainPrivateKeyFilename.Text = ed25519Path.Substring(keyRoot.Length + 1);
-			}
-			else
-			{
-				txtDomainPrivateKeyFilename.Text = ed25519Path;
-			}
+			txtDomainPrivateKeyFilename.Text = MakeRelativeToKeysDirectory(ed25519Path);
 			btDomainSave.Enabled = true;
 			bDataUpdated = true;
 			UpdateSuggestedDns();
@@ -1848,6 +1921,39 @@ namespace Configuration.DkimSigner
 				oCurrentDomain.Domain = txtDomainName.Text;
 				oCurrentDomain.Selector = txtDomainSelector.Text;
 				oCurrentDomain.PrivateKeyFile = txtDomainPrivateKeyFilename.Text;
+
+				string configuredKey = txtDomainPrivateKeyFilename.Text == null ? string.Empty : txtDomainPrivateKeyFilename.Text.Trim();
+				if (configuredKey.EndsWith(".rsa.pem", StringComparison.OrdinalIgnoreCase))
+				{
+					oCurrentDomain.RsaPrivateKeyFile = configuredKey;
+				}
+				if (configuredKey.EndsWith(".ed25519.pem", StringComparison.OrdinalIgnoreCase))
+				{
+					oCurrentDomain.Ed25519PrivateKeyFile = configuredKey;
+				}
+
+				string domainName = txtDomainName.Text.Trim();
+				if (!string.IsNullOrWhiteSpace(domainName))
+				{
+					string keyDirectory = GetDomainKeysDirectory();
+					string rsaPath = Path.Combine(keyDirectory, domainName + ".rsa.pem");
+					string edPath = Path.Combine(keyDirectory, domainName + ".ed25519.pem");
+
+					if (File.Exists(rsaPath))
+					{
+						oCurrentDomain.RsaPrivateKeyFile = MakeRelativeToKeysDirectory(rsaPath);
+					}
+
+					if (File.Exists(edPath))
+					{
+						oCurrentDomain.Ed25519PrivateKeyFile = MakeRelativeToKeysDirectory(edPath);
+					}
+
+					if (File.Exists(rsaPath) || File.Exists(edPath))
+					{
+						EnsureDualSelectors(oCurrentDomain);
+					}
+				}
 
 				if (bAddToList)
 				{

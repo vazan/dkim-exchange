@@ -85,15 +85,15 @@ namespace Exchange.DkimSigner
 
 				foreach (DomainElement domainElement in config.Domains)
 				{
-					string privateKey = domainElement.PrivateKeyPathAbsolute(
-						Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location));
+					string basePath = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+					string privateKey = domainElement.PrivateKeyPathAbsolute(basePath);
 					if (String.IsNullOrEmpty(privateKey) || !File.Exists(privateKey))
 					{
 						Logger.LogError("The private key for domain " + domainElement.Domain + " wasn't found: " + privateKey + ". Ignoring domain.");
 						continue;
 					}
 
-					List<MimeKit.Cryptography.DkimSigner> signers = BuildForcedDualSigners(domainElement, privateKey);
+					List<MimeKit.Cryptography.DkimSigner> signers = BuildForcedDualSigners(domainElement, basePath, privateKey);
 					if (signers.Count > 0)
 					{
 						domains.Add(domainElement.Domain, new DomainElementSigner(domainElement, signers));
@@ -260,21 +260,27 @@ namespace Exchange.DkimSigner
 			}
 		}
 
-		private List<MimeKit.Cryptography.DkimSigner> BuildForcedDualSigners(DomainElement domainElement, string configuredPrivateKeyPath)
+		private List<MimeKit.Cryptography.DkimSigner> BuildForcedDualSigners(DomainElement domainElement, string basePath, string configuredPrivateKeyPath)
 		{
 			List<MimeKit.Cryptography.DkimSigner> signers = new List<MimeKit.Cryptography.DkimSigner>();
 			string directory = Path.GetDirectoryName(configuredPrivateKeyPath);
+			string rsaSelector = !string.IsNullOrWhiteSpace(domainElement.RsaSelector) ? domainElement.RsaSelector : ForcedRsaSelector;
+			string ed25519Selector = !string.IsNullOrWhiteSpace(domainElement.Ed25519Selector) ? domainElement.Ed25519Selector : ForcedEd25519Selector;
 
-			if (String.IsNullOrEmpty(directory))
+			string rsaKeyPath = domainElement.RsaPrivateKeyPathAbsolute(basePath);
+			if (String.IsNullOrEmpty(rsaKeyPath) && !String.IsNullOrEmpty(directory))
 			{
-				return signers;
+				rsaKeyPath = Path.Combine(directory, domainElement.Domain + ".rsa.pem");
 			}
 
-			string rsaKeyPath = Path.Combine(directory, domainElement.Domain + ".rsa.pem");
-			string ed25519KeyPath = Path.Combine(directory, domainElement.Domain + ".ed25519.pem");
+			string ed25519KeyPath = domainElement.Ed25519PrivateKeyPathAbsolute(basePath);
+			if (String.IsNullOrEmpty(ed25519KeyPath) && !String.IsNullOrEmpty(directory))
+			{
+				ed25519KeyPath = Path.Combine(directory, domainElement.Domain + ".ed25519.pem");
+			}
 
-			TryAddSigner(signers, domainElement.Domain, ForcedRsaSelector, rsaKeyPath, DkimSignatureAlgorithm.RsaSha256, isRsaExpected: true);
-			TryAddSigner(signers, domainElement.Domain, ForcedEd25519Selector, ed25519KeyPath, DkimSignatureAlgorithm.Ed25519Sha256, isRsaExpected: false);
+			TryAddSigner(signers, domainElement.Domain, rsaSelector, rsaKeyPath, DkimSignatureAlgorithm.RsaSha256, isRsaExpected: true);
+			TryAddSigner(signers, domainElement.Domain, ed25519Selector, ed25519KeyPath, DkimSignatureAlgorithm.Ed25519Sha256, isRsaExpected: false);
 
 			if (signers.Count > 0)
 			{
@@ -287,7 +293,7 @@ namespace Exchange.DkimSigner
 		[System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "Log key parse/validation details")]
 		private void TryAddSigner(List<MimeKit.Cryptography.DkimSigner> signers, string domain, string selector, string keyPath, DkimSignatureAlgorithm algorithm, bool isRsaExpected)
 		{
-			if (!File.Exists(keyPath))
+			if (String.IsNullOrWhiteSpace(keyPath) || !File.Exists(keyPath))
 			{
 				Logger.LogDebug("Dual-sign key not found for domain " + domain + ": " + keyPath);
 				return;

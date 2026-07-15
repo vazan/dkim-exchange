@@ -6,7 +6,11 @@ namespace Exchange.DkimSigner.Configuration
 	{
 		public string Domain { get; set; }
 		public string Selector { get; set; }
+		public string RsaSelector { get; set; }
+		public string Ed25519Selector { get; set; }
 		public string PrivateKeyFile { get; set; }
+		public string RsaPrivateKeyFile { get; set; }
+		public string Ed25519PrivateKeyFile { get; set; }
 
 		/// <summary>
 		/// Domain element constructor
@@ -27,7 +31,31 @@ namespace Exchange.DkimSigner.Configuration
 
 		public string PrivateKeyPathAbsolute(string basePath)
 		{
-			return Path.IsPathRooted(PrivateKeyFile) ? PrivateKeyFile : Path.Combine(basePath, @"keys\" + PrivateKeyFile);
+			string configuredPath = !string.IsNullOrWhiteSpace(PrivateKeyFile)
+				? PrivateKeyFile
+				: (!string.IsNullOrWhiteSpace(Ed25519PrivateKeyFile) ? Ed25519PrivateKeyFile : RsaPrivateKeyFile);
+
+			return ResolvePrivateKeyPathAbsolute(basePath, configuredPath);
+		}
+
+		public string RsaPrivateKeyPathAbsolute(string basePath)
+		{
+			return ResolvePrivateKeyPathAbsolute(basePath, RsaPrivateKeyFile);
+		}
+
+		public string Ed25519PrivateKeyPathAbsolute(string basePath)
+		{
+			return ResolvePrivateKeyPathAbsolute(basePath, Ed25519PrivateKeyFile);
+		}
+
+		private static string ResolvePrivateKeyPathAbsolute(string basePath, string configuredPath)
+		{
+			if (string.IsNullOrWhiteSpace(configuredPath))
+			{
+				return null;
+			}
+
+			return Path.IsPathRooted(configuredPath) ? configuredPath : Path.Combine(basePath, "keys", configuredPath);
 		}
 	}
 }
